@@ -1,0 +1,123 @@
+
+
+.auth-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.auth-glow-top {
+    position: absolute;
+    top: -10%;
+    right: -10%;
+    width: 25rem;
+    height: 25rem;
+    background-color: var(--accent-glow);
+    border-radius: 50%;
+    filter: blur(80px);
+}
+
+.auth-glow-bottom {
+    position: absolute;
+    bottom: -10%;
+    left: -10%;
+    width: 25rem;
+    height: 25rem;
+    background-color: var(--accent-glow);
+    border-radius: 50%;
+    filter: blur(80px);
+}
+
+.auth-theme-toggle {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    padding: 0.75rem;
+    border-radius: 1.25rem;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 32rem;
+    padding: 3.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+    z-index: 1;
+}
+
+.auth-header {
+    text-align: center;
+}
+
+.auth-icon-box {
+    display: inline-flex;
+    padding: 1rem;
+    border-radius: 1.5rem;
+    background-color: var(--accent-glow);
+    color: var(--accent);
+    margin-bottom: 1rem;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    width: 100%;
+}
+
+.field-wrapper {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.auth-footer {
+    text-align: center;
+}
+
+.auth-link {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.auth-link:hover {
+    text-decoration: underline;
+}
+
+.role-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.role-btn {
+    padding: 1.25rem;
+    border-radius: 1.25rem;
+    border: 1px solid transparent;
+    background-color: rgba(148, 163, 184, 0.05);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    transition: var(--transition);
+    opacity: 0.6;
+}
+
+.role-btn.active {
+    background-color: var(--accent-glow);
+    border-color: var(--accent);
+    color: var(--accent);
+    opacity: 1;
+    box-shadow: 0 0 0 4px var(--accent-glow);
+}
+
+.role-btn:hover:not(.active) {
+    opacity: 1;
+    background-color: rgba(148, 163, 184, 0.1);
+}
