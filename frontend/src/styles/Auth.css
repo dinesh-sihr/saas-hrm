@@ -121,3 +121,16 @@
     opacity: 1;
     background-color: rgba(148, 163, 184, 0.1);
 }
+
+.spinner-mini {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin-loader 0.8s linear infinite;
+}
+
+@keyframes spin-loader {
+    to { transform: rotate(360deg); }
+}

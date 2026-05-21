@@ -12,6 +12,7 @@ const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const { login } = useAuth();
     const { isDark, toggleTheme } = useTheme();
     const navigate = useNavigate();
@@ -19,9 +20,14 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setLoading(true);
         const result = await login(email, password);
-        if (result.success) navigate('/dashboard');
-        else setError(result.message);
+        if (result.success) {
+            navigate('/dashboard');
+        } else {
+            setError(result.message);
+            setLoading(false);
+        }
     };
 
     return (
@@ -60,6 +66,7 @@ const Login = () => {
                                 className="input-field"
                                 placeholder="name@company.com"
                                 required
+                                disabled={loading}
                             />
                         </div>
                     </div>
@@ -75,13 +82,23 @@ const Login = () => {
                                 className="input-field"
                                 placeholder="••••••••"
                                 required
+                                disabled={loading}
                             />
                         </div>
                     </div>
 
-                    <button type="submit" className="btn-primary">
-                        <span>Sign In</span>
-                        <LogIn size={18} />
+                    <button type="submit" className="btn-primary" disabled={loading}>
+                        {loading ? (
+                            <>
+                                <span>Signing In...</span>
+                                <div className="spinner-mini"></div>
+                            </>
+                        ) : (
+                            <>
+                                <span>Sign In</span>
+                                <LogIn size={18} />
+                            </>
+                        )}
                     </button>
                 </form>
 
