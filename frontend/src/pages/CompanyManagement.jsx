@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Plus, Edit3, Trash2, Building2, Mail, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
+import { Search, Plus, Edit3, Trash2, Building2, Mail, CheckCircle, XCircle, RotateCcw, Clock } from 'lucide-react';
 import Pagination from '../components/Pagination';
 import '../styles/Dashboard.css';
 import '../styles/UI.css';
@@ -302,10 +302,24 @@ const CompanyManagement = () => {
                                 </td>
                                 <td>
                                     <span className={`badge ${company.status}`} style={{
-                                        backgroundColor: company.status === 'active' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                        color: company.status === 'active' ? '#10b981' : '#ef4444'
+                                        backgroundColor: company.status === 'active' 
+                                            ? 'rgba(16, 185, 129, 0.1)' 
+                                            : company.status === 'pending'
+                                                ? 'rgba(245, 158, 11, 0.1)'
+                                                : 'rgba(239, 68, 68, 0.1)',
+                                        color: company.status === 'active' 
+                                            ? '#10b981' 
+                                            : company.status === 'pending'
+                                                ? '#f59e0b'
+                                                : '#ef4444'
                                     }}>
-                                        {company.status === 'active' ? <CheckCircle size={10} style={{marginRight: '4px'}} /> : <XCircle size={10} style={{marginRight: '4px'}} />}
+                                        {company.status === 'active' ? (
+                                            <CheckCircle size={10} style={{marginRight: '4px'}} />
+                                        ) : company.status === 'pending' ? (
+                                            <Clock size={10} style={{marginRight: '4px'}} />
+                                        ) : (
+                                            <XCircle size={10} style={{marginRight: '4px'}} />
+                                        )}
                                         {company.status.toUpperCase()}
                                     </span>
                                 </td>

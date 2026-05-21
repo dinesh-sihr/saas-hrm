@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 
 const getEmployees = async (req, res) => {
     const result = await db.query(
-        `SELECT u.id, u.name, u.email, u.role, u.created_at, u.profile_photo, c.name as company_name 
+        `SELECT u.id, u.name, u.email, u.role, u.created_at, u.profile_photo, u.status, c.name as company_name 
          FROM users u 
          JOIN companies c ON u.company_id = c.id 
          WHERE u.company_id = $1 
@@ -24,7 +24,7 @@ const addEmployee = async (req, res) => {
         const existingUser = userExists.rows[0];
         if (!existingUser.company_id) {
             const updateResult = await db.query(
-                'UPDATE users SET company_id = $1, role = $2 WHERE id = $3 RETURNING id, name, email, role',
+                "UPDATE users SET company_id = $1, role = $2, status = 'active' WHERE id = $3 RETURNING id, name, email, role, status",
                 [req.user.company_id, role || 'employee', existingUser.id]
             );
             return res.json(updateResult.rows[0]);
@@ -34,7 +34,7 @@ const addEmployee = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await db.query(
-        'INSERT INTO users (name, email, password, role, company_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, role',
+        "INSERT INTO users (name, email, password, role, company_id, status) VALUES ($1, $2, $3, $4, $5, 'active') RETURNING id, name, email, role, status",
         [name, email, hashedPassword, role || 'employee', req.user.company_id]
     );
     res.status(201).json(result.rows[0]);
@@ -106,11 +106,24 @@ const getEmployeeProfile = async (req, res) => {
         }
     });
 };
+const updateEmployeeStatus = async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    const result = await db.query(
+        'UPDATE users SET status = $1 WHERE id = $2 AND company_id = $3 RETURNING id, name, email, role, status',
+        [status, id, req.user.company_id]
+    );
+    if (result.rows.length === 0) {
+        return res.status(404).json({ message: 'Employee not found' });
+    }
+    res.json({ message: `Employee status updated to ${status}`, user: result.rows[0] });
+};
 
 module.exports = {
     getEmployees,
     addEmployee,
     updateEmployee,
     deleteEmployee,
-    getEmployeeProfile
+    getEmployeeProfile,
+    updateEmployeeStatus
 };

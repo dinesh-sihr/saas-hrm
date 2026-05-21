@@ -179,12 +179,17 @@ const runMigrations = async () => {
         )
     `);
 
+    await migrate('Users: status column', `
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active'
+    `);
+
     try {
         const { hashPassword } = require('../utils/passwordUtils');
         const password = await hashPassword('admin123');
         await db.query(`
-            INSERT INTO users (name, email, password, role)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO users (name, email, password, role, status)
+            VALUES ($1, $2, $3, $4, 'active')
             ON CONFLICT (email) DO NOTHING
         `, ['Super Admin', 'admin@shnoor.com', password, 'super_admin']);
         console.log('✓ Super Admin seeded successfully');

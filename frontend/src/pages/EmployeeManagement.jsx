@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
     Users, Plus, Search, Edit2, Trash2, X, Check,
-    UserPlus, Mail, Shield, User as UserIcon
+    UserPlus, Mail, Shield, User as UserIcon, Clock
 } from 'lucide-react';
 import Pagination from '../components/Pagination';
 import '../styles/UI.css';
@@ -15,6 +15,7 @@ const EmployeeManagement = () => {
     const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
     const [selectedMemberForEdit, setSelectedMemberForEdit] = useState(null);
     const [selectedProfileId, setSelectedProfileId] = useState(null);
+    const [activeTab, setActiveTab] = useState('active');
     const [teamMemberForm, setTeamMemberForm] = useState({
         name: '',
         email: '',
@@ -27,7 +28,7 @@ const EmployeeManagement = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchFilter]);
+    }, [searchFilter, activeTab]);
 
     const loadTeamMembers = async () => {
         try {
@@ -69,6 +70,25 @@ const EmployeeManagement = () => {
         }
     };
 
+    const approveEmployee = async (employeeId) => {
+        try {
+            await axios.patch(`/api/employees/${employeeId}/status`, { status: 'active' });
+            loadTeamMembers();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to approve employee.');
+        }
+    };
+
+    const rejectEmployee = async (memberId) => {
+        if (!window.confirm('Are you sure you want to reject and remove this registration request?')) return;
+        try {
+            await axios.delete(`/api/employees/${memberId}`);
+            loadTeamMembers();
+        } catch (err) {
+            alert('Something went wrong while trying to reject the registration.');
+        }
+    };
+
     const openTeamModal = (memberToEdit = null) => {
         if (memberToEdit) {
             setSelectedMemberForEdit(memberToEdit);
@@ -90,7 +110,13 @@ const EmployeeManagement = () => {
         setSelectedMemberForEdit(null);
     };
 
-    const filteredTeam = teamMemberList.filter(member => 
+    const pendingEmployeesCount = teamMemberList.filter(member => member.status === 'pending').length;
+
+    const tabFilteredTeam = teamMemberList.filter(member => 
+        activeTab === 'pending' ? member.status === 'pending' : member.status !== 'pending'
+    );
+
+    const filteredTeam = tabFilteredTeam.filter(member => 
         member.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
         member.email.toLowerCase().includes(searchFilter.toLowerCase())
     );
@@ -116,6 +142,65 @@ const EmployeeManagement = () => {
             </div>
 
             <div className="glass-card" style={{padding: '1.5rem'}}>
+                <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--card-border)', marginBottom: '1.5rem', paddingBottom: '0.5rem' }}>
+                    <button 
+                        onClick={() => { setActiveTab('active'); setCurrentPage(1); }}
+                        className={`tab-btn ${activeTab === 'active' ? 'active' : ''}`}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: activeTab === 'active' ? 'var(--accent)' : 'var(--text-muted)',
+                            padding: '0.5rem 1rem',
+                            cursor: 'pointer',
+                            fontSize: '0.95rem',
+                            fontWeight: 600,
+                            borderBottom: activeTab === 'active' ? '2px solid var(--accent)' : '2px solid transparent',
+                            transition: 'all 0.3s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                        }}
+                    >
+                        <Users size={16} />
+                        <span>Active Team</span>
+                    </button>
+                    <button 
+                        onClick={() => { setActiveTab('pending'); setCurrentPage(1); }}
+                        className={`tab-btn ${activeTab === 'pending' ? 'active' : ''}`}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: activeTab === 'pending' ? 'var(--accent)' : 'var(--text-muted)',
+                            padding: '0.5rem 1rem',
+                            cursor: 'pointer',
+                            fontSize: '0.95rem',
+                            fontWeight: 600,
+                            borderBottom: activeTab === 'pending' ? '2px solid var(--accent)' : '2px solid transparent',
+                            transition: 'all 0.3s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                        }}
+                    >
+                        <Clock size={16} />
+                        <span>Pending Approvals</span>
+                        {pendingEmployeesCount > 0 && (
+                            <span style={{
+                                backgroundColor: '#f59e0b',
+                                color: '#fff',
+                                fontSize: '0.7rem',
+                                padding: '0.15rem 0.5rem',
+                                borderRadius: '9999px',
+                                fontWeight: 'bold',
+                                marginLeft: '0.25rem',
+                                boxShadow: '0 0 10px rgba(245, 158, 11, 0.4)'
+                            }}>
+                                {pendingEmployeesCount}
+                            </span>
+                        )}
+                    </button>
+                </div>
+
                 <div className="input-group" style={{maxWidth: '400px', marginBottom: '1.5rem'}}>
                     <Search className="input-icon" size={18} />
                     <input 
@@ -135,7 +220,7 @@ const EmployeeManagement = () => {
                                 <th>Email Address</th>
                                 <th>Company</th>
                                 <th>Permission Role</th>
-                                <th>Joined Us On</th>
+                                <th>{activeTab === 'pending' ? 'Registered On' : 'Joined Us On'}</th>
                                 <th style={{textAlign: 'right'}}>Actions</th>
                             </tr>
                         </thead>
@@ -144,8 +229,12 @@ const EmployeeManagement = () => {
                                 currentItems.map((member) => (
                                     <tr 
                                         key={member.id} 
-                                        style={{cursor: 'pointer'}} 
-                                        onClick={() => setSelectedProfileId(member.id)}
+                                        style={{cursor: activeTab === 'active' ? 'pointer' : 'default'}} 
+                                        onClick={() => {
+                                            if (activeTab === 'active') {
+                                                setSelectedProfileId(member.id);
+                                            }
+                                        }}
                                     >
                                         <td>
                                             <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
@@ -171,14 +260,35 @@ const EmployeeManagement = () => {
                                         </td>
                                         <td>{new Date(member.created_at).toLocaleDateString()}</td>
                                         <td style={{textAlign: 'right'}} onClick={(e) => e.stopPropagation()}>
-                                            <div className="action-group" style={{justifyContent: 'flex-end'}}>
-                                                <button onClick={() => openTeamModal(member)} className="btn-icon edit" title="Edit Member Info">
-                                                    <Edit2 size={16} />
-                                                </button>
-                                                <button onClick={() => removeMemberFromTeam(member.id)} className="btn-icon delete" title="Remove from Team">
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </div>
+                                            {activeTab === 'active' ? (
+                                                <div className="action-group" style={{justifyContent: 'flex-end'}}>
+                                                    <button onClick={() => openTeamModal(member)} className="btn-icon edit" title="Edit Member Info">
+                                                        <Edit2 size={16} />
+                                                    </button>
+                                                    <button onClick={() => removeMemberFromTeam(member.id)} className="btn-icon delete" title="Remove from Team">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="action-group" style={{justifyContent: 'flex-end'}}>
+                                                    <button 
+                                                        onClick={() => approveEmployee(member.id)} 
+                                                        className="btn-icon" 
+                                                        title="Approve Request"
+                                                        style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}
+                                                    >
+                                                        <Check size={16} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => rejectEmployee(member.id)} 
+                                                        className="btn-icon" 
+                                                        title="Reject Request"
+                                                        style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
+                                                    >
+                                                        <X size={16} />
+                                                    </button>
+                                                </div>
+                                            )}
                                         </td>
                                     </tr>
                                 ))

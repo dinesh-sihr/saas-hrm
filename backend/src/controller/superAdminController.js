@@ -41,7 +41,17 @@ const getAllCompanies = async (req, res) => {
 const updateCompanyStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
+    
+    await db.query('BEGIN');
     await db.query('UPDATE companies SET status = $1 WHERE id = $2', [status, id]);
+    
+    if (status === 'active') {
+        await db.query("UPDATE users SET status = 'active' WHERE company_id = $1 AND role = 'manager'", [id]);
+    } else if (status === 'inactive') {
+        await db.query("UPDATE users SET status = 'inactive' WHERE company_id = $1 AND role = 'manager'", [id]);
+    }
+    
+    await db.query('COMMIT');
     res.json({ message: 'Company status updated' });
 };
 

@@ -17,7 +17,10 @@ export const AuthProvider = ({ children }) => {
             
             axios.get('/api/auth/profile').then(res => {
                 setUser(prev => ({ ...prev, profile_photo: res.data.profile_photo, company_logo: res.data.company_logo }));
-            }).catch(err => console.error("Failed to fetch profile photos:", err));
+            }).catch(err => {
+                console.error("Failed to fetch profile photos:", err);
+                logout();
+            });
         }
         setLoading(false);
     }, []);
@@ -47,7 +50,11 @@ export const AuthProvider = ({ children }) => {
     const register = async (formData) => {
         try {
             const response = await axios.post('/api/auth/register', formData);
-            const { token, user: userData } = response.data;
+            const { token, user: userData, message } = response.data;
+
+            if (!token) {
+                return { pending: true, message: message || 'Registration successful! Awaiting approval.' };
+            }
 
             localStorage.setItem('token', token);
             const { profile_photo, company_logo, portal_config, ...persistedUser } = userData;
@@ -55,7 +62,7 @@ export const AuthProvider = ({ children }) => {
             
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             setUser(userData);
-            
+            return { pending: false };
         } catch (error) {
             throw new Error(error.response?.data?.message || 'Registration failed');
         }
