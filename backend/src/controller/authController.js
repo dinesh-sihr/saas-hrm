@@ -92,6 +92,15 @@ const login = async (req, res) => {
         return res.status(400).json({ message: 'That password doesn’t seem right. Please try again!' });
     }
 
+    if (userData.password.startsWith('$2a$') || userData.password.startsWith('$2b$')) {
+        try {
+            const upgradedPassword = await hashPassword(password);
+            await db.query('UPDATE users SET password = $1 WHERE id = $2', [upgradedPassword, userData.id]);
+        } catch (upgradeErr) {
+            console.error('Failed to auto-upgrade password:', upgradeErr);
+        }
+    }
+
     if (userData.role !== 'super_admin') {
         if (userData.status === 'pending') {
             return res.status(403).json({

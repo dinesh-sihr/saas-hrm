@@ -346,19 +346,28 @@ const getPerformanceMetrics = async (userId, companyId, userName, role, forceRef
         }
     };
 
-    if (skipGemini) {
-        metrics.aiSummary = metrics.trend.status === 'improved'
-            ? "You're doing great lately! Keep that same energy going."
-            : "Focus on finishing your active tasks to get your trend back up.";
-    } else {
-        metrics.aiSummary = await generateAISummary(metrics, userName, role);
-    }
+    metrics.aiSummary = metrics.trend.status === 'improved'
+        ? "You're doing great lately! Keep that same energy going."
+        : "Focus on finishing your active tasks to get your trend back up.";
 
     await db.query("DELETE FROM performance_insights WHERE user_id = $1", [userId]);
     await db.query(
         "INSERT INTO performance_insights (user_id, metrics_json, ai_summary) VALUES ($1, $2, $3)",
         [userId, JSON.stringify(metrics), metrics.aiSummary]
     );
+
+    if (!skipGemini && process.env.GEMINI_API_KEY) {
+        generateAISummary(metrics, userName, role).then(async (aiSummary) => {
+            if (aiSummary) {
+                await db.query(
+                    "UPDATE performance_insights SET ai_summary = $1 WHERE user_id = $2",
+                    [aiSummary, userId]
+                );
+            }
+        }).catch(err => {
+            console.error('Background AI Summary generation failed:', err);
+        });
+    }
 
     if (metrics.trend.status === 'declined' && Math.abs(metrics.trend.value) > 5) {
         await createNotification(
