@@ -167,10 +167,10 @@ const generateAISummary = async (metrics, userName, role) => {
     }
 };
 
-const getPerformanceMetrics = async (userId, companyId, userName, role, forceRefresh = false) => {
+const getPerformanceMetrics = async (userId, companyId, userName, role, forceRefresh = false, skipGemini = false) => {
     if (!forceRefresh) {
         const cached = await db.query(
-            "SELECT * FROM performance_insights WHERE user_id = $1 AND calculated_at > CURRENT_TIMESTAMP - INTERVAL '5 minutes' ORDER BY calculated_at DESC LIMIT 1",
+            "SELECT * FROM performance_insights WHERE user_id = $1 AND calculated_at > CURRENT_TIMESTAMP - INTERVAL '1 hour' ORDER BY calculated_at DESC LIMIT 1",
             [userId]
         );
         if (cached.rows.length > 0) {
@@ -346,7 +346,13 @@ const getPerformanceMetrics = async (userId, companyId, userName, role, forceRef
         }
     };
 
-    metrics.aiSummary = await generateAISummary(metrics, userName, role);
+    if (skipGemini) {
+        metrics.aiSummary = metrics.trend.status === 'improved'
+            ? "You're doing great lately! Keep that same energy going."
+            : "Focus on finishing your active tasks to get your trend back up.";
+    } else {
+        metrics.aiSummary = await generateAISummary(metrics, userName, role);
+    }
 
     await db.query("DELETE FROM performance_insights WHERE user_id = $1", [userId]);
     await db.query(
@@ -393,7 +399,7 @@ const getTeamInsights = async (req, res) => {
     );
 
     const teamMetrics = await Promise.all(employees.rows.map(async (emp) => {
-        const metrics = await getPerformanceMetrics(emp.id, req.user.company_id, emp.name, emp.role, req.query.refresh === 'true');
+        const metrics = await getPerformanceMetrics(emp.id, req.user.company_id, emp.name, emp.role, req.query.refresh === 'true', true);
         return {
             id: emp.id,
             name: emp.name,

@@ -42,17 +42,26 @@ const updateCompanyStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     
-    await db.query('BEGIN');
-    await db.query('UPDATE companies SET status = $1 WHERE id = $2', [status, id]);
-    
-    if (status === 'active') {
-        await db.query("UPDATE users SET status = 'active' WHERE company_id = $1 AND role = 'manager'", [id]);
-    } else if (status === 'inactive') {
-        await db.query("UPDATE users SET status = 'inactive' WHERE company_id = $1 AND role = 'manager'", [id]);
+    const client = await db.pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query('UPDATE companies SET status = $1 WHERE id = $2', [status, id]);
+        
+        if (status === 'active') {
+            await client.query("UPDATE users SET status = 'active' WHERE company_id = $1 AND role = 'manager'", [id]);
+        } else if (status === 'inactive') {
+            await client.query("UPDATE users SET status = 'inactive' WHERE company_id = $1 AND role = 'manager'", [id]);
+        }
+        
+        await client.query('COMMIT');
+        res.json({ message: 'Company status updated' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ message: 'Failed to update company status' });
+    } finally {
+        client.release();
     }
-    
-    await db.query('COMMIT');
-    res.json({ message: 'Company status updated' });
 };
 
 const updateCompanyDetails = async (req, res) => {
@@ -77,31 +86,40 @@ const createCompany = async (req, res) => {
 
     const passwordPromise = hashPassword(password);
 
-    await db.query('BEGIN');
-    
-    const companyResult = await db.query(
-        'INSERT INTO companies (name, email) VALUES ($1, $2) RETURNING id',
-        [name, email]
-    );
-    const companyId = companyResult.rows[0].id;
+    const client = await db.pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const companyResult = await client.query(
+            'INSERT INTO companies (name, email) VALUES ($1, $2) RETURNING id',
+            [name, email]
+        );
+        const companyId = companyResult.rows[0].id;
 
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(startDate.getDate() + 30);
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setDate(startDate.getDate() + 30);
 
-    await db.query(
-        'INSERT INTO subscriptions (company_id, plan, start_date, end_date) VALUES ($1, $2, $3, $4)',
-        [companyId, plan, startDate, endDate]
-    );
+        await client.query(
+            'INSERT INTO subscriptions (company_id, plan, start_date, end_date) VALUES ($1, $2, $3, $4)',
+            [companyId, plan, startDate, endDate]
+        );
 
-    const hashedPassword = await passwordPromise;
-    await db.query(
-        'INSERT INTO users (name, email, password, role, company_id) VALUES ($1, $2, $3, $4, $5)',
-        [managerName, email, hashedPassword, 'manager', companyId]
-    );
+        const hashedPassword = await passwordPromise;
+        await client.query(
+            'INSERT INTO users (name, email, password, role, company_id) VALUES ($1, $2, $3, $4, $5)',
+            [managerName, email, hashedPassword, 'manager', companyId]
+        );
 
-    await db.query('COMMIT');
-    res.status(201).json({ message: 'Company and Manager created successfully', companyId });
+        await client.query('COMMIT');
+        res.status(201).json({ message: 'Company and Manager created successfully', companyId });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ message: 'Failed to create company and manager' });
+    } finally {
+        client.release();
+    }
 };
 
 const deleteCompany = async (req, res) => {

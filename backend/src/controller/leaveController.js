@@ -71,15 +71,21 @@ const updateLeaveStatus = async (req, res) => {
         const end = new Date(leaveData.to_date);
         const dayCount = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
-        for (let i = 0; i < dayCount; i++) {
-            const currentDate = new Date(start);
-            currentDate.setDate(start.getDate() + i);
-            
+        if (dayCount > 0) {
+            const queryParams = [];
+            const valueRows = [];
+            for (let i = 0; i < dayCount; i++) {
+                const currentDate = new Date(start);
+                currentDate.setDate(start.getDate() + i);
+                const offset = i * 2;
+                queryParams.push(leaveData.user_id, currentDate);
+                valueRows.push(`($${offset + 1}, $${offset + 2}, $${offset + 2}, $${offset + 2}, 'on_leave', 0)`);
+            }
             await db.query(`
                 INSERT INTO attendance (user_id, created_at, check_in, check_out, status, total_hours)
-                VALUES ($1, $2, $2, $2, 'on_leave', 0)
+                VALUES ${valueRows.join(', ')}
                 ON CONFLICT DO NOTHING
-            `, [leaveData.user_id, currentDate]);
+            `, queryParams);
         }
     }
 

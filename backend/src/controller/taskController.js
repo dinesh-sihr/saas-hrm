@@ -17,18 +17,33 @@ const assignTask = async (req, res) => {
     const taskId = result.rows[0].id;
 
     if (isGroup) {
-        for (const userId of assigned_to) {
-            await db.query(
-                "INSERT INTO task_assignees (task_id, user_id) VALUES ($1, $2)",
-                [taskId, userId]
-            );
-            
-            await db.query(
-                "INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)",
-                [userId, "New Group Task Assigned", `You have been added to a group task: ${title}`]
-            );
-            await logActivity(req.user.company_id, userId, `was added to a group task: ${title}`, 'Group Synergy', '#6366f1');
-        }
+        const assigneesParams = [];
+        const assigneesValues = [];
+        const notificationsParams = [];
+        const notificationsValues = [];
+        const activitiesParams = [];
+        const activitiesValues = [];
+
+        assigned_to.forEach((userId, i) => {
+            assigneesParams.push(taskId, userId);
+            assigneesValues.push(`($${i * 2 + 1}, $${i * 2 + 2})`);
+
+            const nOffset = i * 3;
+            notificationsParams.push(userId, "New Group Task Assigned", `You have been added to a group task: ${title}`);
+            notificationsValues.push(`($${nOffset + 1}, $${nOffset + 2}, $${nOffset + 3})`);
+
+            const aOffset = i * 5;
+            activitiesParams.push(req.user.company_id, userId, `was added to a group task: ${title}`, 'Group Synergy', '#6366f1');
+            activitiesValues.push(`($${aOffset + 1}, $${aOffset + 2}, $${aOffset + 3}, $${aOffset + 4}, $${aOffset + 5})`);
+        });
+
+        await Promise.all([
+            db.query(`INSERT INTO task_assignees (task_id, user_id) VALUES ${assigneesValues.join(', ')}`, assigneesParams),
+            db.query(`INSERT INTO notifications (user_id, title, message) VALUES ${notificationsValues.join(', ')}`, notificationsParams),
+            db.query(`INSERT INTO activities (company_id, user_id, action, status, color) VALUES ${activitiesValues.join(', ')}`, activitiesParams).catch(error => {
+                console.error('Failed to log batch activities:', error);
+            })
+        ]);
     } else {
         await db.query(
             "INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)",
@@ -72,12 +87,28 @@ const completeTask = async (req, res) => {
 
     if (task.type === 'group') {
         const assignees = await db.query("SELECT user_id FROM task_assignees WHERE task_id = $1", [task.id]);
-        for (const assignee of assignees.rows) {
-            await logActivity(req.user.company_id, assignee.user_id, `collaborated to complete group task: ${task.title}`, 'Group Synergy', '#6366f1');
-            await db.query(
-                "INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)",
-                [assignee.user_id, "Group Synergy Success!", `Your group task "${task.title}" has been completed!`]
-            );
+        if (assignees.rows.length > 0) {
+            const notificationsParams = [];
+            const notificationsValues = [];
+            const activitiesParams = [];
+            const activitiesValues = [];
+
+            assignees.rows.forEach((assignee, i) => {
+                const nOffset = i * 3;
+                notificationsParams.push(assignee.user_id, "Group Synergy Success!", `Your group task "${task.title}" has been completed!`);
+                notificationsValues.push(`($${nOffset + 1}, $${nOffset + 2}, $${nOffset + 3})`);
+
+                const aOffset = i * 5;
+                activitiesParams.push(req.user.company_id, assignee.user_id, `collaborated to complete group task: ${task.title}`, 'Group Synergy', '#6366f1');
+                activitiesValues.push(`($${aOffset + 1}, $${aOffset + 2}, $${aOffset + 3}, $${aOffset + 4}, $${aOffset + 5})`);
+            });
+
+            await Promise.all([
+                db.query(`INSERT INTO notifications (user_id, title, message) VALUES ${notificationsValues.join(', ')}`, notificationsParams),
+                db.query(`INSERT INTO activities (company_id, user_id, action, status, color) VALUES ${activitiesValues.join(', ')}`, activitiesParams).catch(error => {
+                    console.error('Failed to log batch activities:', error);
+                })
+            ]);
         }
     }
 

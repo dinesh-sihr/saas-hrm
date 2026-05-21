@@ -26,12 +26,16 @@ const createMeeting = async (req, res) => {
     const meeting = meetingResult.rows[0];
 
     if (participantIds && participantIds.length > 0) {
-        for (const userId of participantIds) {
-            await db.query(
-                'INSERT INTO meeting_participants (meeting_id, user_id) VALUES ($1, $2)',
-                [meeting.id, userId]
-            );
+        const queryParams = [meeting.id];
+        const valueRows = [];
+        for (let i = 0; i < participantIds.length; i++) {
+            queryParams.push(participantIds[i]);
+            valueRows.push(`($1, $${i + 2})`);
         }
+        await db.query(
+            `INSERT INTO meeting_participants (meeting_id, user_id) VALUES ${valueRows.join(', ')}`,
+            queryParams
+        );
     }
 
     await logActivity(req.user.company_id, req.user.id, `scheduled a new meeting: ${title}`, 'Meeting Sync', '#8b5cf6');

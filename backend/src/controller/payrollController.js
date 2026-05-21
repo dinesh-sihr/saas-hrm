@@ -67,14 +67,25 @@ const calculateSalary = async (req, res) => {
         }
         const user = userQuery.rows[0];
 
-        const holidaysQuery = await db.query(
-            "SELECT TO_CHAR(holiday_date, 'YYYY-MM-DD') as holiday_date FROM holidays WHERE company_id = $1 AND TO_CHAR(holiday_date, 'YYYY-MM-DD') BETWEEN $2 AND $3",
-            [user.company_id, from, to]
-        );
-        const leavesQuery = await db.query(
-            "SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as leave_date FROM attendance WHERE user_id = $1 AND status = 'on_leave' AND TO_CHAR(created_at, 'YYYY-MM-DD') BETWEEN $2 AND $3",
-            [targetUserId, from, to]
-        );
+        const [holidaysQuery, leavesQuery, attendanceQuery, existingLogsQuery] = await Promise.all([
+            db.query(
+                "SELECT TO_CHAR(holiday_date, 'YYYY-MM-DD') as holiday_date FROM holidays WHERE company_id = $1 AND holiday_date BETWEEN $2 AND $3",
+                [user.company_id, from, to]
+            ),
+            db.query(
+                "SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as leave_date FROM attendance WHERE user_id = $1 AND status = 'on_leave' AND DATE(created_at) BETWEEN $2 AND $3",
+                [targetUserId, from, to]
+            ),
+            db.query(
+                "SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as work_date, total_hours FROM attendance WHERE user_id = $1 AND DATE(created_at) BETWEEN $2 AND $3",
+                [targetUserId, from, to]
+            ),
+            db.query(
+                "SELECT TO_CHAR(log_date, 'YYYY-MM-DD') as log_date FROM daily_salary_logs WHERE user_id = $1 AND log_date BETWEEN $2 AND $3",
+                [targetUserId, from, to]
+            )
+        ]);
+
         const excludedDates = new Set();
         holidaysQuery.rows.forEach(r => excludedDates.add(r.holiday_date));
         leavesQuery.rows.forEach(r => excludedDates.add(r.leave_date));
@@ -91,71 +102,84 @@ const calculateSalary = async (req, res) => {
         };
 
         const todayStr = formatDate(new Date());
-
-        const existingLogsQuery = await db.query(
-            "SELECT TO_CHAR(log_date, 'YYYY-MM-DD') as log_date FROM daily_salary_logs WHERE user_id = $1 AND log_date BETWEEN $2 AND $3",
-            [targetUserId, from, to]
-        );
         const existingLogsSet = new Set(existingLogsQuery.rows.map(r => r.log_date));
 
-        const attendanceQuery = await db.query(
-            "SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as work_date, total_hours FROM attendance WHERE user_id = $1 AND DATE(created_at) BETWEEN $2 AND $3",
-            [targetUserId, from, to]
-        );
         const attendanceMap = {};
         attendanceQuery.rows.forEach(r => {
             attendanceMap[r.work_date] = parseFloat(r.total_hours || 0);
         });
 
-        const monthCache = {};
-        const getMonthlyParams = async (year, month) => {
+        const monthParamsCache = {};
+        const getMonthlyParamsInMemory = async (year, month) => {
+            const cacheKey = `${year}-${month}`;
+            if (monthParamsCache[cacheKey]) return monthParamsCache[cacheKey];
+
             const startOfMonth = `${year}-${String(month).padStart(2, '0')}-01`;
             const endOfMonthObj = new Date(year, month, 0);
             const endOfMonth = `${year}-${String(month).padStart(2, '0')}-${String(endOfMonthObj.getDate()).padStart(2, '0')}`;
-            
-            const holQuery = await db.query(
-                "SELECT TO_CHAR(holiday_date, 'YYYY-MM-DD') as holiday_date FROM holidays WHERE company_id = $1 AND TO_CHAR(holiday_date, 'YYYY-MM-DD') BETWEEN $2 AND $3",
-                [user.company_id, startOfMonth, endOfMonth]
-            );
-            const leaveQuery = await db.query(
-                "SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as leave_date FROM attendance WHERE user_id = $1 AND status = 'on_leave' AND TO_CHAR(created_at, 'YYYY-MM-DD') BETWEEN $2 AND $3",
-                [targetUserId, startOfMonth, endOfMonth]
-            );
-            const excludedDates = new Set();
-            holQuery.rows.forEach(r => excludedDates.add(r.holiday_date));
-            leaveQuery.rows.forEach(r => excludedDates.add(r.leave_date));
-            const holCount = excludedDates.size;
+
+            const [holQuery, leaveQuery] = await Promise.all([
+                db.query(
+                    "SELECT TO_CHAR(holiday_date, 'YYYY-MM-DD') as holiday_date FROM holidays WHERE company_id = $1 AND holiday_date BETWEEN $2 AND $3",
+                    [user.company_id, startOfMonth, endOfMonth]
+                ),
+                db.query(
+                    "SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as leave_date FROM attendance WHERE user_id = $1 AND status = 'on_leave' AND DATE(created_at) BETWEEN $2 AND $3",
+                    [targetUserId, startOfMonth, endOfMonth]
+                )
+            ]);
+
+            const excl = new Set();
+            holQuery.rows.forEach(r => excl.add(r.holiday_date));
+            leaveQuery.rows.forEach(r => excl.add(r.leave_date));
+            const holCount = excl.size;
             const stdDays = Math.max(26 - holCount, 1);
-            return {
+            const params = {
                 standardDays: stdDays,
                 dailyRate: parseFloat(user.basic_salary) / stdDays
             };
+            monthParamsCache[cacheKey] = params;
+            return params;
         };
 
         let tempDate = new Date(start);
+        const insertRows = [];
+
         while (tempDate <= end) {
             const dateStr = formatDate(tempDate);
             if (!existingLogsSet.has(dateStr) || dateStr === todayStr) {
                 const year = tempDate.getFullYear();
                 const month = tempDate.getMonth() + 1;
-                const cacheKey = `${year}-${month}`;
-                if (!monthCache[cacheKey]) {
-                    monthCache[cacheKey] = await getMonthlyParams(year, month);
-                }
-                const { dailyRate } = monthCache[cacheKey];
+                const { dailyRate } = await getMonthlyParamsInMemory(year, month);
                 const effectiveHours = Math.min(parseFloat(attendanceMap[dateStr] || 0), 8);
                 const earnedAmount = dailyRate * (effectiveHours / 8);
-
-                await db.query(`
-                    INSERT INTO daily_salary_logs (user_id, log_date, effective_hours, daily_rate, earned_amount)
-                    VALUES ($1, $2, $3, $4, $5)
-                    ON CONFLICT (user_id, log_date) DO UPDATE
-                    SET effective_hours = EXCLUDED.effective_hours,
-                        daily_rate = EXCLUDED.daily_rate,
-                        earned_amount = EXCLUDED.earned_amount
-                `, [targetUserId, dateStr, effectiveHours, dailyRate.toFixed(2), earnedAmount.toFixed(2)]);
+                insertRows.push({
+                    dateStr,
+                    effectiveHours,
+                    dailyRate,
+                    earnedAmount
+                });
             }
             tempDate.setDate(tempDate.getDate() + 1);
+        }
+
+        if (insertRows.length > 0) {
+            const queryParams = [];
+            const valuesStrings = [];
+            insertRows.forEach((row, index) => {
+                const offset = index * 5;
+                queryParams.push(targetUserId, row.dateStr, row.effectiveHours, row.dailyRate.toFixed(2), row.earnedAmount.toFixed(2));
+                valuesStrings.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5})`);
+            });
+
+            await db.query(`
+                INSERT INTO daily_salary_logs (user_id, log_date, effective_hours, daily_rate, earned_amount)
+                VALUES ${valuesStrings.join(', ')}
+                ON CONFLICT (user_id, log_date) DO UPDATE
+                SET effective_hours = EXCLUDED.effective_hours,
+                    daily_rate = EXCLUDED.daily_rate,
+                    earned_amount = EXCLUDED.earned_amount
+            `, queryParams);
         }
 
         const logsResult = await db.query(
@@ -172,11 +196,7 @@ const calculateSalary = async (req, res) => {
 
         const primaryYear = start.getFullYear();
         const primaryMonth = start.getMonth() + 1;
-        const primaryCacheKey = `${primaryYear}-${primaryMonth}`;
-        if (!monthCache[primaryCacheKey]) {
-            monthCache[primaryCacheKey] = await getMonthlyParams(primaryYear, primaryMonth);
-        }
-        const { standardDays, dailyRate } = monthCache[primaryCacheKey];
+        const { standardDays, dailyRate } = await getMonthlyParamsInMemory(primaryYear, primaryMonth);
 
         const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         const monthName = monthNames[start.getMonth()];
@@ -238,133 +258,223 @@ const getEmployeesSummary = async (req, res) => {
         );
         const employees = employeesQuery.rows;
 
+        if (employees.length === 0) {
+            return res.json([]);
+        }
+
+        const empIds = employees.map(emp => emp.id);
         const start = new Date(from);
         const end = new Date(to);
+
         const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         const monthName = monthNames[start.getMonth()];
         const yearVal = start.getFullYear();
 
-        const summaryList = [];
+        const getMonthsInRange = (startDate, endDate) => {
+            const months = [];
+            const temp = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+            const boundary = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+            while (temp <= boundary) {
+                months.push({
+                    year: temp.getFullYear(),
+                    month: temp.getMonth() + 1
+                });
+                temp.setMonth(temp.getMonth() + 1);
+            }
+            return months;
+        };
+
+        const monthsList = getMonthsInRange(start, end);
+        const rangeMinDate = `${monthsList[0].year}-${String(monthsList[0].month).padStart(2, '0')}-01`;
+        const lastMonth = monthsList[monthsList.length - 1];
+        const lastMonthEndObj = new Date(lastMonth.year, lastMonth.month, 0);
+        const rangeMaxDate = `${lastMonth.year}-${String(lastMonth.month).padStart(2, '0')}-${String(lastMonthEndObj.getDate()).padStart(2, '0')}`;
+
+        const [allHolidays, allLeaves, allAttendance, allExistingLogs, allPayroll] = await Promise.all([
+            db.query(
+                "SELECT TO_CHAR(holiday_date, 'YYYY-MM-DD') as holiday_date FROM holidays WHERE company_id = $1 AND holiday_date BETWEEN $2 AND $3",
+                [req.user.company_id, rangeMinDate, rangeMaxDate]
+            ),
+            db.query(
+                "SELECT user_id, TO_CHAR(created_at, 'YYYY-MM-DD') as leave_date FROM attendance WHERE user_id = ANY($1) AND status = 'on_leave' AND DATE(created_at) BETWEEN $2 AND $3",
+                [empIds, rangeMinDate, rangeMaxDate]
+            ),
+            db.query(
+                "SELECT user_id, TO_CHAR(created_at, 'YYYY-MM-DD') as work_date, total_hours FROM attendance WHERE user_id = ANY($1) AND DATE(created_at) BETWEEN $2 AND $3",
+                [empIds, from, to]
+            ),
+            db.query(
+                "SELECT user_id, TO_CHAR(log_date, 'YYYY-MM-DD') as log_date, effective_hours, daily_rate, earned_amount FROM daily_salary_logs WHERE user_id = ANY($1) AND log_date BETWEEN $2 AND $3",
+                [empIds, from, to]
+            ),
+            db.query(
+                "SELECT * FROM payroll WHERE user_id = ANY($1) AND month = $2 AND year = $3",
+                [empIds, monthName, yearVal]
+            )
+        ]);
+
+        const holidaysByMonth = {};
+        allHolidays.rows.forEach(r => {
+            const parts = r.holiday_date.split('-');
+            const key = `${parts[0]}-${parseInt(parts[1])}`;
+            if (!holidaysByMonth[key]) holidaysByMonth[key] = new Set();
+            holidaysByMonth[key].add(r.holiday_date);
+        });
+
+        const leavesByEmployeeAndMonth = {};
+        allLeaves.rows.forEach(r => {
+            const parts = r.leave_date.split('-');
+            const key = `${r.user_id}-${parts[0]}-${parseInt(parts[1])}`;
+            if (!leavesByEmployeeAndMonth[key]) leavesByEmployeeAndMonth[key] = new Set();
+            leavesByEmployeeAndMonth[key].add(r.leave_date);
+        });
+
+        const attendanceMap = {};
+        allAttendance.rows.forEach(r => {
+            const key = `${r.user_id}-${r.work_date}`;
+            attendanceMap[key] = parseFloat(r.total_hours || 0);
+        });
+
+        const existingLogsSet = new Set();
+        allExistingLogs.rows.forEach(r => {
+            existingLogsSet.add(`${r.user_id}-${r.log_date}`);
+        });
+
+        const payrollMap = {};
+        allPayroll.rows.forEach(r => {
+            payrollMap[r.user_id] = r;
+        });
+
+        const holidaysInRangeQuery = await db.query(
+            "SELECT TO_CHAR(holiday_date, 'YYYY-MM-DD') as holiday_date FROM holidays WHERE company_id = $1 AND holiday_date BETWEEN $2 AND $3",
+            [req.user.company_id, from, to]
+        );
+        const holidaysInRange = new Set(holidaysInRangeQuery.rows.map(r => r.holiday_date));
+
+        const formatDate = (dateObj) => {
+            const y = dateObj.getFullYear();
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const d = String(dateObj.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        };
+        const todayStr = formatDate(new Date());
+
+        const monthParamsCache = {};
+        const getParamsInMemory = (empId, basicSalary, year, month) => {
+            const cacheKey = `${empId}-${year}-${month}`;
+            if (monthParamsCache[cacheKey]) return monthParamsCache[cacheKey];
+
+            const holKey = `${year}-${month}`;
+            const empLeaveKey = `${empId}-${year}-${month}`;
+
+            const holSet = holidaysByMonth[holKey] || new Set();
+            const leaveSet = leavesByEmployeeAndMonth[empLeaveKey] || new Set();
+
+            const excl = new Set([...holSet, ...leaveSet]);
+            const holCount = excl.size;
+            const stdDays = Math.max(26 - holCount, 1);
+            const params = {
+                standardDays: stdDays,
+                dailyRate: parseFloat(basicSalary) / stdDays
+            };
+            monthParamsCache[cacheKey] = params;
+            return params;
+        };
+
+        const insertRows = [];
 
         for (const emp of employees) {
-            const holidaysQuery = await db.query(
-                "SELECT TO_CHAR(holiday_date, 'YYYY-MM-DD') as holiday_date FROM holidays WHERE company_id = $1 AND TO_CHAR(holiday_date, 'YYYY-MM-DD') BETWEEN $2 AND $3",
-                [req.user.company_id, from, to]
-            );
-            const leavesQuery = await db.query(
-                "SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as leave_date FROM attendance WHERE user_id = $1 AND status = 'on_leave' AND TO_CHAR(created_at, 'YYYY-MM-DD') BETWEEN $2 AND $3",
-                [emp.id, from, to]
-            );
-            const excludedDates = new Set();
-            holidaysQuery.rows.forEach(r => excludedDates.add(r.holiday_date));
-            leavesQuery.rows.forEach(r => excludedDates.add(r.leave_date));
-            const holidaysCount = excludedDates.size;
-
-            const formatDate = (dateObj) => {
-                const y = dateObj.getFullYear();
-                const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const d = String(dateObj.getDate()).padStart(2, '0');
-                return `${y}-${m}-${d}`;
-            };
-            const todayStr = formatDate(new Date());
-
-            const existingLogsQuery = await db.query(
-                "SELECT TO_CHAR(log_date, 'YYYY-MM-DD') as log_date FROM daily_salary_logs WHERE user_id = $1 AND log_date BETWEEN $2 AND $3",
-                [emp.id, from, to]
-            );
-            const existingLogsSet = new Set(existingLogsQuery.rows.map(r => r.log_date));
-
-            const attendanceQuery = await db.query(
-                "SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as work_date, total_hours FROM attendance WHERE user_id = $1 AND DATE(created_at) BETWEEN $2 AND $3",
-                [emp.id, from, to]
-            );
-            const attendanceMap = {};
-            attendanceQuery.rows.forEach(r => {
-                attendanceMap[r.work_date] = parseFloat(r.total_hours || 0);
-            });
-
-            const getMonthlyParams = async (year, month) => {
-                const startOfMonth = `${year}-${String(month).padStart(2, '0')}-01`;
-                const endOfMonthObj = new Date(year, month, 0);
-                const endOfMonth = `${year}-${String(month).padStart(2, '0')}-${String(endOfMonthObj.getDate()).padStart(2, '0')}`;
-                
-                const holQuery = await db.query(
-                    "SELECT TO_CHAR(holiday_date, 'YYYY-MM-DD') as holiday_date FROM holidays WHERE company_id = $1 AND TO_CHAR(holiday_date, 'YYYY-MM-DD') BETWEEN $2 AND $3",
-                    [req.user.company_id, startOfMonth, endOfMonth]
-                );
-                const leaveQuery = await db.query(
-                    "SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as leave_date FROM attendance WHERE user_id = $1 AND status = 'on_leave' AND TO_CHAR(created_at, 'YYYY-MM-DD') BETWEEN $2 AND $3",
-                    [emp.id, startOfMonth, endOfMonth]
-                );
-                const excludedDates = new Set();
-                holQuery.rows.forEach(r => excludedDates.add(r.holiday_date));
-                leaveQuery.rows.forEach(r => excludedDates.add(r.leave_date));
-                const holCount = excludedDates.size;
-                const stdDays = Math.max(26 - holCount, 1);
-                return {
-                    standardDays: stdDays,
-                    dailyRate: parseFloat(emp.basic_salary) / stdDays
-                };
-            };
-
-            const monthCache = {};
             let tempDate = new Date(start);
             while (tempDate <= end) {
                 const dateStr = formatDate(tempDate);
-                if (!existingLogsSet.has(dateStr) || dateStr === todayStr) {
+                const logKey = `${emp.id}-${dateStr}`;
+                if (!existingLogsSet.has(logKey) || dateStr === todayStr) {
                     const year = tempDate.getFullYear();
                     const month = tempDate.getMonth() + 1;
-                    const cacheKey = `${year}-${month}`;
-                    if (!monthCache[cacheKey]) {
-                        monthCache[cacheKey] = await getMonthlyParams(year, month);
-                    }
-                    const { dailyRate } = monthCache[cacheKey];
-                    const effectiveHours = Math.min(parseFloat(attendanceMap[dateStr] || 0), 8);
+                    const { dailyRate } = getParamsInMemory(emp.id, emp.basic_salary, year, month);
+                    const attKey = `${emp.id}-${dateStr}`;
+                    const effectiveHours = Math.min(parseFloat(attendanceMap[attKey] || 0), 8);
                     const earnedAmount = dailyRate * (effectiveHours / 8);
 
-                    await db.query(`
-                        INSERT INTO daily_salary_logs (user_id, log_date, effective_hours, daily_rate, earned_amount)
-                        VALUES ($1, $2, $3, $4, $5)
-                        ON CONFLICT (user_id, log_date) DO UPDATE
-                        SET effective_hours = EXCLUDED.effective_hours,
-                            daily_rate = EXCLUDED.daily_rate,
-                            earned_amount = EXCLUDED.earned_amount
-                    `, [emp.id, dateStr, effectiveHours, dailyRate.toFixed(2), earnedAmount.toFixed(2)]);
+                    insertRows.push({
+                        empId: emp.id,
+                        dateStr,
+                        effectiveHours,
+                        dailyRate,
+                        earnedAmount
+                    });
                 }
                 tempDate.setDate(tempDate.getDate() + 1);
             }
+        }
 
-            const logsResult = await db.query(
-                "SELECT effective_hours, earned_amount FROM daily_salary_logs WHERE user_id = $1 AND log_date BETWEEN $2 AND $3",
-                [emp.id, from, to]
-            );
+        if (insertRows.length > 0) {
+            const batchSize = 100;
+            for (let i = 0; i < insertRows.length; i += batchSize) {
+                const chunk = insertRows.slice(i, i + batchSize);
+                const queryParams = [];
+                const valuesStrings = [];
+                chunk.forEach((row, index) => {
+                    const offset = index * 5;
+                    queryParams.push(row.empId, row.dateStr, row.effectiveHours, row.dailyRate.toFixed(2), row.earnedAmount.toFixed(2));
+                    valuesStrings.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5})`);
+                });
 
+                await db.query(`
+                    INSERT INTO daily_salary_logs (user_id, log_date, effective_hours, daily_rate, earned_amount)
+                    VALUES ${valuesStrings.join(', ')}
+                    ON CONFLICT (user_id, log_date) DO UPDATE
+                    SET effective_hours = EXCLUDED.effective_hours,
+                        daily_rate = EXCLUDED.daily_rate,
+                        earned_amount = EXCLUDED.earned_amount
+                `, queryParams);
+            }
+        }
+
+        const [finalLogs, finalLeaves] = await Promise.all([
+            db.query(
+                "SELECT user_id, effective_hours, earned_amount FROM daily_salary_logs WHERE user_id = ANY($1) AND log_date BETWEEN $2 AND $3",
+                [empIds, from, to]
+            ),
+            db.query(
+                "SELECT user_id, TO_CHAR(created_at, 'YYYY-MM-DD') as leave_date FROM attendance WHERE user_id = ANY($1) AND status = 'on_leave' AND DATE(created_at) BETWEEN $2 AND $3",
+                [empIds, from, to]
+            )
+        ]);
+
+        const finalLogsByEmp = {};
+        finalLogs.rows.forEach(r => {
+            if (!finalLogsByEmp[r.user_id]) finalLogsByEmp[r.user_id] = [];
+            finalLogsByEmp[r.user_id].push(r);
+        });
+
+        const finalLeavesByEmp = {};
+        finalLeaves.rows.forEach(r => {
+            if (!finalLeavesByEmp[r.user_id]) finalLeavesByEmp[r.user_id] = [];
+            finalLeavesByEmp[r.user_id].push(r);
+        });
+
+        const summaryList = [];
+
+        for (const emp of employees) {
+            const empHolidaysCount = new Set([
+                ...holidaysInRange,
+                ...(finalLeavesByEmp[emp.id] || []).map(r => r.leave_date)
+            ]).size;
+
+            const empLogs = finalLogsByEmp[emp.id] || [];
             let totalEffectiveHours = 0;
             let earnedSalary = 0;
-            logsResult.rows.forEach(r => {
+            empLogs.forEach(r => {
                 totalEffectiveHours += parseFloat(r.effective_hours);
                 earnedSalary += parseFloat(r.earned_amount);
             });
 
             const primaryYear = start.getFullYear();
             const primaryMonth = start.getMonth() + 1;
-            const primaryCacheKey = `${primaryYear}-${primaryMonth}`;
-            let standardDays = 26;
-            let dailyRate = parseFloat(emp.basic_salary) / 26;
-            if (monthCache[primaryCacheKey]) {
-                standardDays = monthCache[primaryCacheKey].standardDays;
-                dailyRate = monthCache[primaryCacheKey].dailyRate;
-            } else {
-                const params = await getMonthlyParams(primaryYear, primaryMonth);
-                standardDays = params.standardDays;
-                dailyRate = params.dailyRate;
-            }
+            const { standardDays, dailyRate } = getParamsInMemory(emp.id, emp.basic_salary, primaryYear, primaryMonth);
 
-            const payrollOverrideQuery = await db.query(
-                "SELECT * FROM payroll WHERE user_id = $1 AND month = $2 AND year = $3",
-                [emp.id, monthName, yearVal]
-            );
-
+            const payrollOverride = payrollMap[emp.id];
             const engineEarned = Math.min(earnedSalary, parseFloat(emp.basic_salary));
             const engineDeductions = Math.max(parseFloat(emp.basic_salary) - engineEarned, 0);
 
@@ -372,11 +482,10 @@ const getEmployeesSummary = async (req, res) => {
             let deductions = engineDeductions;
             let status = 'pending';
 
-            if (payrollOverrideQuery.rows.length > 0) {
-                const payrollRec = payrollOverrideQuery.rows[0];
-                netSalary = parseFloat(payrollRec.net_salary);
-                deductions = parseFloat(payrollRec.deductions);
-                status = payrollRec.status;
+            if (payrollOverride) {
+                netSalary = parseFloat(payrollOverride.net_salary);
+                deductions = parseFloat(payrollOverride.deductions);
+                status = payrollOverride.status;
             }
 
             summaryList.push({
@@ -385,7 +494,7 @@ const getEmployeesSummary = async (req, res) => {
                 email: emp.email,
                 basicSalary: parseFloat(emp.basic_salary),
                 standardDays,
-                holidaysCount,
+                holidaysCount: empHolidaysCount,
                 totalEffectiveHours: parseFloat(totalEffectiveHours.toFixed(2)),
                 actualWorkedDays: parseFloat((totalEffectiveHours / 8).toFixed(2)),
                 dailyRate: parseFloat(dailyRate.toFixed(2)),
