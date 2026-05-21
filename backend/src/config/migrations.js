@@ -1,5 +1,16 @@
+const fs = require('fs');
+const path = require('path');
 const db = require('./db');
+
 const runMigrations = async () => {
+    try {
+        const schemaPath = path.join(__dirname, '../models/schema.sql');
+        const schemaSql = fs.readFileSync(schemaPath, 'utf8');
+        await db.query(schemaSql);
+        console.log('✓ Base schema initialized successfully');
+    } catch (err) {
+        console.error('✗ Failed to initialize base schema:', err.message);
+    }
     
     const migrate = async (label, query) => {
         try {
@@ -167,6 +178,19 @@ const runMigrations = async () => {
             UNIQUE(user_id, log_date)
         )
     `);
+
+    try {
+        const { hashPassword } = require('../utils/passwordUtils');
+        const password = await hashPassword('admin123');
+        await db.query(`
+            INSERT INTO users (name, email, password, role)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (email) DO NOTHING
+        `, ['Super Admin', 'admin@shnoor.com', password, 'super_admin']);
+        console.log('✓ Super Admin seeded successfully');
+    } catch (err) {
+        console.error('✗ Failed to seed Super Admin:', err.message);
+    }
 };
 
 module.exports = runMigrations;
