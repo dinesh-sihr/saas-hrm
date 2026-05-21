@@ -1,5 +1,5 @@
 const db = require('../config/db');
-const bcrypt = require('bcryptjs');
+const { hashPassword } = require('../utils/passwordUtils');
 
 const getEmployees = async (req, res) => {
     const result = await db.query(
@@ -19,7 +19,11 @@ const addEmployee = async (req, res) => {
         return res.status(400).json({ message: 'Session expired or invalid company mapping. Please log out and log back in.' });
     }
     
-    const userExists = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    const [userExists, hashedPassword] = await Promise.all([
+        db.query('SELECT * FROM users WHERE email = $1', [email]),
+        hashPassword(password)
+    ]);
+
     if (userExists.rows.length > 0) {
         const existingUser = userExists.rows[0];
         if (!existingUser.company_id) {
@@ -32,7 +36,6 @@ const addEmployee = async (req, res) => {
         return res.status(400).json({ message: 'User already exists' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
     const result = await db.query(
         "INSERT INTO users (name, email, password, role, company_id, status) VALUES ($1, $2, $3, $4, $5, 'active') RETURNING id, name, email, role, status",
         [name, email, hashedPassword, role || 'employee', req.user.company_id]
@@ -55,13 +58,10 @@ const updateEmployee = async (req, res) => {
 
 const deleteEmployee = async (req, res) => {
     const { id } = req.params;
-    const result = await db.query(
+    await db.query(
         'DELETE FROM users WHERE id = $1 AND company_id = $2',
         [id, req.user.company_id]
     );
-    if (result.rowCount === 0) {
-        return res.status(404).json({ message: 'Employee not found' });
-    }
     res.json({ message: 'Employee removed successfully' });
 };
 

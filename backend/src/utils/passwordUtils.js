@@ -1,8 +1,8 @@
 const bcrypt = require('bcryptjs');
 
 const hashPassword = async (password) => {
-    const salt = await bcrypt.genSalt(10);
-    return await bcrypt.hash(password, salt);
+    const rounds = parseInt(process.env.BCRYPT_ROUNDS) || (process.env.NODE_ENV === 'production' ? 10 : 4);
+    return await bcrypt.hash(password, rounds);
 };
 
 const comparePassword = async (password, hashedPassword) => {

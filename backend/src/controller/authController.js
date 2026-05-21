@@ -1,4 +1,4 @@
-const bcrypt = require('bcryptjs');
+const { hashPassword, comparePassword } = require('../utils/passwordUtils');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 
@@ -6,12 +6,15 @@ const register = async (req, res) => {
     try {
         const { name, email, password, role, companyName } = req.body;
 
-        const existingUserCheck = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        const [existingUserCheck, hashedPassword] = await Promise.all([
+            db.query('SELECT * FROM users WHERE email = $1', [email]),
+            hashPassword(password)
+        ]);
+
         if (existingUserCheck.rows.length > 0) {
             return res.status(400).json({ message: 'It looks like that email is already registered. Try logging in instead!' });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
         let assignedCompanyId = null;
 
         if (role === 'manager' && companyName) {
@@ -84,7 +87,7 @@ const login = async (req, res) => {
     }
 
     const userData = userSearch.rows[0];
-    const doPasswordsMatch = await bcrypt.compare(password, userData.password);
+    const doPasswordsMatch = await comparePassword(password, userData.password);
     if (!doPasswordsMatch) {
         return res.status(400).json({ message: 'That password doesn’t seem right. Please try again!' });
     }
@@ -159,7 +162,7 @@ const updateProfile = async (req, res) => {
     let updateQuery = 'UPDATE users SET name = $1, email = $2, profile_photo = $3';
 
     if (password) {
-        const newHashedPassword = await bcrypt.hash(password, 10);
+        const newHashedPassword = await hashPassword(password);
         updateQuery += ', password = $5';
         updateParams.push(newHashedPassword);
     }

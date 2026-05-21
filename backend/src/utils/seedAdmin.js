@@ -4,7 +4,13 @@ require('dotenv').config({ path: '../../.env' });
 
 const seed = async () => {
     try {
-        const password = await hashPassword('admin123');
+        const adminEmail = process.env.SUPER_ADMIN_EMAIL;
+        const adminPassword = process.env.SUPER_ADMIN_PASSWORD;
+        if (!adminEmail || !adminPassword) {
+            console.error('✗ Super Admin email or password not specified in environment variables.');
+            process.exit(1);
+        }
+        const password = await hashPassword(adminPassword);
         const query = `
             INSERT INTO users (name, email, password, role)
             VALUES ($1, $2, $3, $4)
@@ -12,7 +18,7 @@ const seed = async () => {
             RETURNING email;
         `;
         
-        const { rows } = await db.query(query, ['Super Admin', 'admin@shnoor.com', password, 'super_admin']);
+        const { rows } = await db.query(query, ['Super Admin', adminEmail, password, 'super_admin']);
         
         if (rows.length) {
             console.log(`Admin created: ${rows[0].email}`);

@@ -1,5 +1,5 @@
 const db = require('../config/db');
-const bcrypt = require('bcryptjs');
+const { hashPassword } = require('../utils/passwordUtils');
 
 const getStats = async (req, res) => {
     const companies = await db.query('SELECT status, COUNT(*) FROM companies GROUP BY status');
@@ -75,6 +75,8 @@ const createCompany = async (req, res) => {
         return res.status(400).json({ message: 'Manager name and password are required to register a company' });
     }
 
+    const passwordPromise = hashPassword(password);
+
     await db.query('BEGIN');
     
     const companyResult = await db.query(
@@ -85,14 +87,14 @@ const createCompany = async (req, res) => {
 
     const startDate = new Date();
     const endDate = new Date();
-    endDate.setDate(startDate.getDate() + 30); // 30 days trial
+    endDate.setDate(startDate.getDate() + 30);
 
     await db.query(
         'INSERT INTO subscriptions (company_id, plan, start_date, end_date) VALUES ($1, $2, $3, $4)',
         [companyId, plan, startDate, endDate]
     );
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await passwordPromise;
     await db.query(
         'INSERT INTO users (name, email, password, role, company_id) VALUES ($1, $2, $3, $4, $5)',
         [managerName, email, hashedPassword, 'manager', companyId]
@@ -115,11 +117,13 @@ const getAdminUsers = async (req, res) => {
 
 const addAdminUser = async (req, res) => {
     const { name, email, password } = req.body;
-    const existing = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    const [existing, hashedPassword] = await Promise.all([
+        db.query('SELECT * FROM users WHERE email = $1', [email]),
+        hashPassword(password)
+    ]);
     if (existing.rows.length > 0) {
         return res.status(400).json({ message: 'Email already registered' });
     }
-    const hashedPassword = await bcrypt.hash(password, 10);
     const result = await db.query(
         "INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, 'super_admin') RETURNING id, name, email, role",
         [name, email, hashedPassword]

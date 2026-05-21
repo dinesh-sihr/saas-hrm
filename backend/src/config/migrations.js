@@ -185,14 +185,18 @@ const runMigrations = async () => {
     `);
 
     try {
-        const { hashPassword } = require('../utils/passwordUtils');
-        const password = await hashPassword('admin123');
-        await db.query(`
-            INSERT INTO users (name, email, password, role, status)
-            VALUES ($1, $2, $3, $4, 'active')
-            ON CONFLICT (email) DO NOTHING
-        `, ['Super Admin', 'admin@shnoor.com', password, 'super_admin']);
-        console.log('✓ Super Admin seeded successfully');
+        const adminEmail = process.env.SUPER_ADMIN_EMAIL;
+        const adminPassword = process.env.SUPER_ADMIN_PASSWORD;
+        if (adminEmail && adminPassword) {
+            const { hashPassword } = require('../utils/passwordUtils');
+            const password = await hashPassword(adminPassword);
+            await db.query(`
+                INSERT INTO users (name, email, password, role, status)
+                VALUES ($1, $2, $3, $4, 'active')
+                ON CONFLICT (email) DO NOTHING
+            `, ['Super Admin', adminEmail, password, 'super_admin']);
+            console.log('✓ Super Admin seeded successfully');
+        }
     } catch (err) {
         console.error('✗ Failed to seed Super Admin:', err.message);
     }
