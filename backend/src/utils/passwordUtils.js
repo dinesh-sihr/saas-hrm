@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const hashPassword = async (password) => {
     return new Promise((resolve, reject) => {
         const salt = crypto.randomBytes(16).toString('hex');
-        crypto.scrypt(password, salt, 64, (err, derivedKey) => {
+        crypto.scrypt(password, salt, 64, { cost: 4096, blockSize: 8, parallelization: 1 }, (err, derivedKey) => {
             if (err) {
                 reject(err);
             } else {
@@ -23,7 +23,7 @@ const comparePassword = async (password, hashedPassword) => {
         const salt = parts[1];
         const key = parts[2];
         return new Promise((resolve, reject) => {
-            crypto.scrypt(password, salt, 64, (err, derivedKey) => {
+            crypto.scrypt(password, salt, 64, { cost: 4096, blockSize: 8, parallelization: 1 }, (err, derivedKey) => {
                 if (err) {
                     reject(err);
                 } else {
