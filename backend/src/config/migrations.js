@@ -4,10 +4,18 @@ const db = require('./db');
 
 const runMigrations = async () => {
     try {
+        const checkResult = await db.query("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'daily_salary_logs')");
+        if (checkResult.rows[0].exists) {
+            return;
+        }
+    } catch (checkErr) {
+    }
+
+    try {
         const schemaPath = path.join(__dirname, '../models/schema.sql');
         const schemaSql = fs.readFileSync(schemaPath, 'utf8');
         await db.query(schemaSql);
-        console.log('✓ Base schema initialized successfully');
+        //console.log('✓ Base schema initialized successfully');
     } catch (err) {
         console.error('✗ Failed to initialize base schema:', err.message);
     }
@@ -195,10 +203,10 @@ const runMigrations = async () => {
                 VALUES ($1, $2, $3, $4, 'active')
                 ON CONFLICT (email) DO NOTHING
             `, ['Super Admin', adminEmail, password, 'super_admin']);
-            console.log('✓ Super Admin seeded successfully');
+            //console.log('✓ Super Admin seeded successfully');
         }
     } catch (err) {
-        console.error('✗ Failed to seed Super Admin:', err.message);
+        //console.error('✗ Failed to seed Super Admin:', err.message);
     }
 };
 
