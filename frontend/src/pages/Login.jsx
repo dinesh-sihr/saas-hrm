@@ -40,7 +40,7 @@ const Login = () => {
             }
         }, 1500);
 
-        axios.get('/health')
+        axios.get('/api/health')
             .then(() => {
                 if (isMounted) {
                     clearTimeout(wakeTimer);

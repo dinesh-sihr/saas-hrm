@@ -44,6 +44,14 @@ app.get('/health', (req, res) => {
     });
 });
 
+app.get('/api/health', (req, res) => {
+    res.status(200).json({ 
+        status: 'OK', 
+        message: 'HRM Server is running',
+        timestamp: new Date()
+    });
+});
+
 app.use(express.static(path.join(__dirname, '../../frontend/dist')));
 
 app.get('*', (req, res) => {
