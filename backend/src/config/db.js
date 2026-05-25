@@ -27,6 +27,10 @@ pool.on('error', (err) => {
     process.exit(-1);
 });
 
+setInterval(() => {
+    pool.query('SELECT 1').catch(() => {});
+}, 120000);
+
 module.exports = {
     query: (text, params) => pool.query(text, params),
     pool
