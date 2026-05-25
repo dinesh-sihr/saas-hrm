@@ -7,6 +7,9 @@ const runMigrations = async () => {
         await db.query("SELECT 1 FROM daily_salary_logs LIMIT 1");
         return;
     } catch (checkErr) {
+        if (checkErr.code !== '42P01') {
+            return;
+        }
     }
 
     try {
