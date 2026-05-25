@@ -4,10 +4,8 @@ const db = require('./db');
 
 const runMigrations = async () => {
     try {
-        const checkResult = await db.query("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'daily_salary_logs')");
-        if (checkResult.rows[0].exists) {
-            return;
-        }
+        await db.query("SELECT 1 FROM daily_salary_logs LIMIT 1");
+        return;
     } catch (checkErr) {
     }
 

@@ -93,12 +93,11 @@ const login = async (req, res) => {
     }
 
     if (userData.password.startsWith('$2a$') || userData.password.startsWith('$2b$')) {
-        try {
-            const upgradedPassword = await hashPassword(password);
+        hashPassword(password).then(async (upgradedPassword) => {
             await db.query('UPDATE users SET password = $1 WHERE id = $2', [upgradedPassword, userData.id]);
-        } catch (upgradeErr) {
+        }).catch((upgradeErr) => {
             console.error('Failed to auto-upgrade password:', upgradeErr);
-        }
+        });
     }
 
     if (userData.role !== 'super_admin') {
