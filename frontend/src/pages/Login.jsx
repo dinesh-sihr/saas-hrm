@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Mail, Lock, LogIn, ShieldCheck, Sun, Moon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Mail, Lock, LogIn, ShieldCheck, Sun, Moon, CloudLightning } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNavigate, Link } from 'react-router-dom';
+import axios from 'axios';
 
 import '../styles/Global.css';
 import '../styles/UI.css';
@@ -13,6 +14,7 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [serverWaking, setServerWaking] = useState(false);
     const { login } = useAuth();
     const { isDark, toggleTheme } = useTheme();
     const navigate = useNavigate();
@@ -29,6 +31,34 @@ const Login = () => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        let isMounted = true;
+        const wakeTimer = setTimeout(() => {
+            if (isMounted) {
+                setServerWaking(true);
+            }
+        }, 1500);
+
+        axios.get('/health')
+            .then(() => {
+                if (isMounted) {
+                    clearTimeout(wakeTimer);
+                    setServerWaking(false);
+                }
+            })
+            .catch(() => {
+                if (isMounted) {
+                    clearTimeout(wakeTimer);
+                    setServerWaking(false);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+            clearTimeout(wakeTimer);
+        };
+    }, []);
 
     return (
         <div className="auth-page app-container">
@@ -101,6 +131,29 @@ const Login = () => {
                         )}
                     </button>
                 </form>
+
+                {serverWaking && (
+                    <div className="badge" style={{
+                        backgroundColor: 'rgba(168, 85, 247, 0.08)',
+                        color: '#a855f7',
+                        border: '1px solid rgba(168, 85, 247, 0.2)',
+                        borderRadius: '1rem',
+                        padding: '1rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        textTransform: 'none',
+                        fontSize: '0.8rem',
+                        lineHeight: '1.4',
+                        textAlign: 'left'
+                    }}>
+                        <CloudLightning size={20} className="animate-pulse" style={{flexShrink: 0}} />
+                        <div>
+                            <strong style={{display: 'block', marginBottom: '0.15rem'}}>Waking Up Cloud Server</strong>
+                            Our secure, energy-efficient database is booting up. This will take a moment.
+                        </div>
+                    </div>
+                )}
 
                 <div className="auth-footer">
                     <p className="input-label" style={{textTransform: 'none', fontSize: '0.875rem'}}>
