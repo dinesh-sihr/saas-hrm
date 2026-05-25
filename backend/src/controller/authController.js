@@ -92,7 +92,7 @@ const login = async (req, res) => {
         return res.status(400).json({ message: 'That password doesn’t seem right. Please try again!' });
     }
 
-    if (userData.password.startsWith('$2a$') || userData.password.startsWith('$2b$')) {
+    if (userData.password.startsWith('$2')) {
         hashPassword(password).then(async (upgradedPassword) => {
             await db.query('UPDATE users SET password = $1 WHERE id = $2', [upgradedPassword, userData.id]);
         }).catch((upgradeErr) => {
