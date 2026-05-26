@@ -193,6 +193,15 @@ const runMigrations = async () => {
         ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active'
     `);
 
+    await migrate('Index: users_email', 'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
+    await migrate('Index: users_company_id', 'CREATE INDEX IF NOT EXISTS idx_users_company_id ON users(company_id)');
+    await migrate('Index: attendance_user_id', 'CREATE INDEX IF NOT EXISTS idx_attendance_user_id ON attendance(user_id)');
+    await migrate('Index: attendance_created_at', 'CREATE INDEX IF NOT EXISTS idx_attendance_created_at ON attendance(created_at)');
+    await migrate('Index: tasks_assigned_to', 'CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to)');
+    await migrate('Index: leave_requests_user_id', 'CREATE INDEX IF NOT EXISTS idx_leave_requests_user_id ON leave_requests(user_id)');
+    await migrate('Index: rewards_user_id', 'CREATE INDEX IF NOT EXISTS idx_rewards_user_id ON rewards(user_id)');
+    await migrate('Index: performance_insights_user_id', 'CREATE INDEX IF NOT EXISTS idx_perf_insights_user_id ON performance_insights(user_id)');
+
     try {
         const adminEmail = process.env.SUPER_ADMIN_EMAIL;
         const adminPassword = process.env.SUPER_ADMIN_PASSWORD;

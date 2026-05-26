@@ -3,7 +3,7 @@ const { hashPassword } = require('../utils/passwordUtils');
 
 const getEmployees = async (req, res) => {
     const result = await db.query(
-        `SELECT u.id, u.name, u.email, u.role, u.created_at, u.profile_photo, u.status, c.name as company_name 
+        `SELECT u.id, u.name, u.email, u.role, u.created_at, u.status, c.name as company_name 
          FROM users u 
          JOIN companies c ON u.company_id = c.id 
          WHERE u.company_id = $1 

@@ -239,11 +239,7 @@ const EmployeeManagement = () => {
                                         <td>
                                             <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
                                                 <div className="avatar-circle" style={{width: '2rem', height: '2rem', fontSize: '0.7rem'}}>
-                                                    {member.profile_photo ? (
-                                                        <img src={member.profile_photo} alt={member.name} style={{width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover'}} />
-                                                    ) : (
-                                                        member.name.charAt(0)
-                                                    )}
+                                                    {member.name.charAt(0)}
                                                 </div>
                                                 <span style={{fontWeight: 600}}>{member.name}</span>
                                             </div>

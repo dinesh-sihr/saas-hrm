@@ -185,62 +185,65 @@ const getPerformanceMetrics = async (userId, companyId, userName, role, forceRef
         }
     }
 
-    const taskStats = await db.query(`
-        SELECT 
-            COUNT(*) as total,
-            COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
-            AVG(CASE WHEN status = 'completed' AND updated_at IS NOT NULL 
-                THEN EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600 
-                ELSE NULL END) as avg_hours_to_complete
-        FROM tasks 
-        WHERE assigned_to = $1
-    `, [userId]);
-
-    const attendanceStats = await db.query(`
-        SELECT 
-            AVG(total_hours) as avg_daily_hours,
-            COUNT(*) as total_days,
-            COUNT(CASE WHEN EXTRACT(HOUR FROM check_in) < 10 THEN 1 END) as on_time_count
-        FROM attendance 
-        WHERE user_id = $1
-    `, [userId]);
-
-    const meetingStats = await db.query(`
-        SELECT 
-            COUNT(*) as total,
-            COUNT(CASE WHEN mp.joined_at <= m.scheduled_at THEN 1 END) as on_time
-        FROM meeting_participants mp
-        JOIN meetings m ON mp.meeting_id = m.id
-        WHERE mp.user_id = $1
-    `, [userId]);
-
-    const noticeStats = await db.query(`
-        SELECT 
-            AVG(EXTRACT(EPOCH FROM (ar.read_at - a.created_at)) / 3600) as avg_reaction_hours
-        FROM announcement_reads ar
-        JOIN announcements a ON ar.announcement_id = a.id
-        WHERE ar.user_id = $1
-    `, [userId]);
-
-    const trendStats = await db.query(`
-        WITH periods AS (
+    const [taskStats, attendanceStats, meetingStats, noticeStats, trendStats, groupStats] = await Promise.all([
+        db.query(`
             SELECT 
-                CASE 
-                    WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 'current'
-                    WHEN created_at >= CURRENT_DATE - INTERVAL '14 days' AND created_at < CURRENT_DATE - INTERVAL '7 days' THEN 'previous'
-                END as period,
-                status
-            FROM tasks
-            WHERE assigned_to = $1 AND created_at >= CURRENT_DATE - INTERVAL '14 days'
-        )
-        SELECT 
-            period,
-            COUNT(*) as total,
-            COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed
-        FROM periods
-        WHERE period IS NOT NULL
-        GROUP BY period
-    `, [userId]);
+                COUNT(*) as total,
+                COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
+                AVG(CASE WHEN status = 'completed' AND updated_at IS NOT NULL 
+                    THEN EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600 
+                    ELSE NULL END) as avg_hours_to_complete
+            FROM tasks 
+            WHERE assigned_to = $1
+        `, [userId]),
+        db.query(`
+            SELECT 
+                AVG(total_hours) as avg_daily_hours,
+                COUNT(*) as total_days,
+                COUNT(CASE WHEN EXTRACT(HOUR FROM check_in) < 10 THEN 1 END) as on_time_count
+            FROM attendance 
+            WHERE user_id = $1
+        `, [userId]),
+        db.query(`
+            SELECT 
+                COUNT(*) as total,
+                COUNT(CASE WHEN mp.joined_at <= m.scheduled_at THEN 1 END) as on_time
+            FROM meeting_participants mp
+            JOIN meetings m ON mp.meeting_id = m.id
+            WHERE mp.user_id = $1
+        `, [userId]),
+        db.query(`
+            SELECT 
+                AVG(EXTRACT(EPOCH FROM (ar.read_at - a.created_at)) / 3600) as avg_reaction_hours
+            FROM announcement_reads ar
+            JOIN announcements a ON ar.announcement_id = a.id
+            WHERE ar.user_id = $1
+        `, [userId]),
+        db.query(`
+            WITH periods AS (
+                SELECT 
+                    CASE 
+                        WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 'current'
+                        WHEN created_at >= CURRENT_DATE - INTERVAL '14 days' AND created_at < CURRENT_DATE - INTERVAL '7 days' THEN 'previous'
+                    END as period,
+                    status
+                FROM tasks
+                WHERE assigned_to = $1 AND created_at >= CURRENT_DATE - INTERVAL '14 days'
+            )
+            SELECT 
+                period,
+                COUNT(*) as total,
+                COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed
+            FROM periods
+            WHERE period IS NOT NULL
+            GROUP BY period
+        `, [userId]),
+        db.query(`
+            SELECT COUNT(*) as synergy_count 
+            FROM activities 
+            WHERE user_id = $1 AND action LIKE '%collaborated to complete group task%'
+        `, [userId])
+    ]);
 
     const current = trendStats.rows.find(r => r.period === 'current') || { total: 0, completed: 0 };
     const previous = trendStats.rows.find(r => r.period === 'previous') || { total: 0, completed: 0 };
@@ -252,29 +255,23 @@ const getPerformanceMetrics = async (userId, companyId, userName, role, forceRef
     if (previousScore > 0) {
         improvement = Math.round(((currentScore - previousScore) / previousScore) * 100);
     } else if (currentScore > 0) {
-        improvement = 100; 
+        improvement = 100;
     }
 
     const meetingRate = meetingStats.rows[0].total > 0
         ? Math.round((meetingStats.rows[0].on_time / meetingStats.rows[0].total) * 100)
         : 100;
-    
+
     const reactionTime = parseFloat(noticeStats.rows[0].avg_reaction_hours || 0);
-    const reactionScore = Math.max(0, 100 - (reactionTime * 5)); // 20h = 0 score
-    
-    const completionRate = taskStats.rows[0].total > 0 
-        ? Math.round((taskStats.rows[0].completed / taskStats.rows[0].total) * 100) 
+    const reactionScore = Math.max(0, 100 - (reactionTime * 5));
+
+    const completionRate = taskStats.rows[0].total > 0
+        ? Math.round((taskStats.rows[0].completed / taskStats.rows[0].total) * 100)
         : 0;
 
-    const punctualityRate = attendanceStats.rows[0].total_days > 0 
-        ? Math.round((attendanceStats.rows[0].on_time_count / attendanceStats.rows[0].total_days) * 100) 
+    const punctualityRate = attendanceStats.rows[0].total_days > 0
+        ? Math.round((attendanceStats.rows[0].on_time_count / attendanceStats.rows[0].total_days) * 100)
         : 0;
-
-    const groupStats = await db.query(`
-        SELECT COUNT(*) as synergy_count 
-        FROM activities 
-        WHERE user_id = $1 AND action LIKE '%collaborated to complete group task%'
-    `, [userId]);
 
     const synergyBonus = Math.min(15, (parseInt(groupStats.rows[0].synergy_count) || 0) * 5);
 

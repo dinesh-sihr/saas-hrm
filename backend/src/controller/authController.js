@@ -76,7 +76,8 @@ const login = async (req, res) => {
     const { email, password } = req.body;
 
     const userSearch = await db.query(`
-        SELECT u.*, c.name as company_name, c.logo as company_logo, c.portal_header, c.portal_config, c.status as company_status 
+        SELECT u.id, u.name, u.email, u.password, u.role, u.company_id, u.status, u.created_at,
+               c.name as company_name, c.portal_config, c.status as company_status
         FROM users u
         LEFT JOIN companies c ON u.company_id = c.id
         WHERE u.email = $1
