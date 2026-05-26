@@ -4,6 +4,13 @@ const db = require('./db');
 
 const runMigrations = async () => {
     try {
+        await db.query("UPDATE users SET profile_photo = NULL WHERE profile_photo IS NOT NULL AND LENGTH(profile_photo) > 100000");
+        await db.query("UPDATE companies SET logo = NULL WHERE logo IS NOT NULL AND LENGTH(logo) > 100000");
+    } catch (pruneErr) {
+        console.error('Failed to prune legacy large images:', pruneErr.message);
+    }
+
+    try {
         await db.query("SELECT 1 FROM daily_salary_logs LIMIT 1");
         return;
     } catch (checkErr) {
