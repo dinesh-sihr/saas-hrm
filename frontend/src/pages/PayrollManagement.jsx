@@ -427,15 +427,28 @@ const PayrollManagement = () => {
                                                         </td>
                                                         <td><span style={{ fontWeight: 700, color: 'var(--accent)' }}>₹{emp.earnedSalary.toLocaleString('en-IN')}</span></td>
                                                         <td>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
                                                                 <span style={{ opacity: 0.6 }}>₹</span>
                                                                 <input 
                                                                     type="number" 
-                                                                    className="input-field" 
                                                                     disabled={emp.status === 'paid' || btnLoading}
                                                                     value={overrides[emp.id] !== undefined ? overrides[emp.id] : emp.netSalary} 
                                                                     onChange={(e) => handleOverrideChange(emp.id, e.target.value)} 
-                                                                    style={{ margin: 0, padding: '0.25rem 0.5rem', height: '32px', fontSize: '0.85rem' }} 
+                                                                    style={{ 
+                                                                        margin: 0, 
+                                                                        padding: '0 0.75rem', 
+                                                                        height: '38px', 
+                                                                        width: '120px', 
+                                                                        fontSize: '0.95rem', 
+                                                                        color: '#ffffff', 
+                                                                        backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+                                                                        border: '1px solid rgba(255, 255, 255, 0.3)', 
+                                                                        borderRadius: '0.5rem',
+                                                                        fontWeight: '600',
+                                                                        outline: 'none',
+                                                                        boxSizing: 'border-box',
+                                                                        textAlign: 'center'
+                                                                    }} 
                                                                 />
                                                             </div>
                                                         </td>

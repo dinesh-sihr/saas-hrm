@@ -50,43 +50,45 @@ const AnnouncementList = () => {
     };
 
     return (
-        <div className="glass-card" style={{padding: '2rem', height: '100%', minHeight: '400px', display: 'flex', flexDirection: 'column'}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem'}}>
-                <h3 className="heading-md">Notices</h3>
-                {user.role === 'manager' && (
-                    <button onClick={() => setShowAddModal(true)} className="add-btn-small">
-                        <Plus size={16} />
-                    </button>
-                )}
-            </div>
+        <>
+            <div className="glass-card" style={{padding: '2rem', height: '100%', minHeight: '400px', display: 'flex', flexDirection: 'column'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem'}}>
+                    <h3 className="heading-md">Notices</h3>
+                    {user.role === 'manager' && (
+                        <button onClick={() => setShowAddModal(true)} className="add-btn-small">
+                            <Plus size={16} />
+                        </button>
+                    )}
+                </div>
 
-            <div className="notice-list" style={{flex: 1, overflowY: 'auto'}}>
-                {loading ? (
-                    <div style={{display: 'flex', justifyContent: 'center', padding: '2rem'}}>
-                        <Loader2 className="animate-spin" />
-                    </div>
-                ) : notices.length > 0 ? (
-                    notices.map(notice => (
-                        <div key={notice.id} style={{position: 'relative', marginBottom: '2rem'}}>
-                            <NoticeItem 
-                                tag={notice.tag} 
-                                title={notice.title} 
-                                content={notice.description} 
-                                onInteraction={() => axios.post(`/api/announcements/${notice.id}/read`).catch(() => {})}
-                            />
-                            {user.role === 'manager' && (
-                                <button 
-                                    onClick={() => handleDelete(notice.id)}
-                                    className="delete-notice-icon"
-                                >
-                                    <X size={12} />
-                                </button>
-                            )}
+                <div className="notice-list" style={{flex: 1, overflowY: 'auto'}}>
+                    {loading ? (
+                        <div style={{display: 'flex', justifyContent: 'center', padding: '2rem'}}>
+                            <Loader2 className="animate-spin" />
                         </div>
-                    ))
-                ) : (
-                    <div className="empty-state">No announcements yet.</div>
-                )}
+                    ) : notices.length > 0 ? (
+                        notices.map(notice => (
+                            <div key={notice.id} style={{position: 'relative', marginBottom: '2rem'}}>
+                                <NoticeItem 
+                                    tag={notice.tag} 
+                                    title={notice.title} 
+                                    content={notice.description} 
+                                    onInteraction={() => axios.post(`/api/announcements/${notice.id}/read`).catch(() => {})}
+                                />
+                                {user.role === 'manager' && (
+                                    <button 
+                                        onClick={() => handleDelete(notice.id)}
+                                        className="delete-notice-icon"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                )}
+                            </div>
+                        ))
+                    ) : (
+                        <div className="empty-state">No announcements yet.</div>
+                    )}
+                </div>
             </div>
 
             {showAddModal && (
@@ -148,7 +150,7 @@ const AnnouncementList = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </>
     );
 };
 
