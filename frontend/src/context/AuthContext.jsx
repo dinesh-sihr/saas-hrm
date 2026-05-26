@@ -35,7 +35,13 @@ export const AuthProvider = ({ children }) => {
             localStorage.setItem('user', JSON.stringify(persistedUser));
             
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-            setUser(userData);
+            
+            try {
+                const profileRes = await axios.get('/api/auth/profile');
+                setUser(profileRes.data);
+            } catch (err) {
+                setUser(userData);
+            }
             
             return { success: true };
         } catch (error) {
@@ -61,7 +67,13 @@ export const AuthProvider = ({ children }) => {
             localStorage.setItem('user', JSON.stringify(persistedUser));
             
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-            setUser(userData);
+            
+            try {
+                const profileRes = await axios.get('/api/auth/profile');
+                setUser(profileRes.data);
+            } catch (err) {
+                setUser(userData);
+            }
             return { pending: false };
         } catch (error) {
             throw new Error(error.response?.data?.message || 'Registration failed');
