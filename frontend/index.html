@@ -38,7 +38,31 @@
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap"></noscript>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- High-performance inline pre-loader skeleton for instantaneous FCP < 0.3s -->
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: system-ui, -apple-system, sans-serif; gap: 1.5rem; transition: opacity 0.3s;">
+        <div style="font-size: 2.25rem; font-weight: 800; letter-spacing: 2px; color: #1e293b; text-align: center; text-transform: uppercase;">
+          SHNOOR
+          <span style="display: block; font-size: 0.65rem; font-weight: 800; letter-spacing: 4px; color: #94a3b8; margin-top: 0.5rem; text-transform: uppercase;">SECURE CLOUD PORTAL</span>
+        </div>
+        <div style="width: 2.5rem; height: 2.5rem; border: 3px solid rgba(37, 99, 235, 0.1); border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        <style>
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+          .dark div {
+            color: #f8fafc !important;
+          }
+          .dark span {
+            color: #64748b !important;
+          }
+          .dark div[style*="border-top-color"] {
+            border-color: rgba(59, 130, 246, 0.15) !important;
+            border-top-color: #3b82f6 !important;
+          }
+        </style>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
