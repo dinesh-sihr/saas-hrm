@@ -5,6 +5,10 @@ import { useTheme } from '../context/ThemeContext';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 
+import '../styles/Global.css';
+import '../styles/UI.css';
+import '../styles/Auth.css';
+
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');

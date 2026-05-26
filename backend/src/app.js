@@ -1,8 +1,8 @@
+const fs = require('fs');
 const express = require('express');
 require('express-async-errors');
 const cors = require('cors');
 const path = require('path');
-const zlib = require('zlib');
 require('dotenv').config();
 
 const { errorHandler } = require('./middleware/errorMiddleware');
@@ -19,25 +19,6 @@ setImmediate(() => {
         initScheduler();
     });
 });
-
-// gzip json responses over 1kb
-const _json = express.response.json;
-express.response.json = function(body) {
-    const enc = this.req.headers['accept-encoding'] || '';
-    const str = JSON.stringify(body);
-    
-    if (enc.includes('gzip') && str && str.length > 1024) {
-        try {
-            const buf = zlib.gzipSync(str, { level: 6 });
-            this.setHeader('Content-Type', 'application/json');
-            this.setHeader('Content-Encoding', 'gzip');
-            this.setHeader('Vary', 'Accept-Encoding');
-            return this.end(buf);
-        } catch (e) {}
-    }
-    
-    return _json.call(this, body);
-};
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -77,17 +58,30 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// hashed assets get cached for a year
-app.use('/assets', express.static(path.join(__dirname, '../../frontend/dist/assets'), {
-    maxAge: '1y',
-    immutable: true,
-}));
+app.use(express.static(path.join(__dirname, '../../frontend/dist'), { index: false }));
 
-app.use(express.static(path.join(__dirname, '../../frontend/dist')));
+const serveOptimizedHtml = (req, res) => {
+    try {
+        let html = fs.readFileSync(path.join(__dirname, '../../frontend/dist/index.html'), 'utf8');
+        
+        // Dynamically rewrite any render-blocking CSS link to high-performance preloads
+        html = html.replace(
+            /<link rel="stylesheet" crossorigin href="([^"]+)">/g, 
+            '<link rel="preload" href="$1" as="style" onload="this.onload=null;this.rel=\'stylesheet\'"><noscript><link rel="stylesheet" href="$1"></noscript>'
+        );
+        html = html.replace(
+            /<link rel="stylesheet" href="([^"]+)">/g, 
+            '<link rel="preload" href="$1" as="style" onload="this.onload=null;this.rel=\'stylesheet\'"><noscript><link rel="stylesheet" href="$1"></noscript>'
+        );
+        
+        res.send(html);
+    } catch (err) {
+        res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
+    }
+};
 
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
-});
+app.get('/', serveOptimizedHtml);
+app.get('*', serveOptimizedHtml);
 
 app.use(errorHandler);
 
