@@ -1,5 +1,31 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const path = require('path');
+const { Worker } = require('worker_threads');
+
+const bcryptCompareInWorker = (password, hash) => {
+    return new Promise((resolve, reject) => {
+        const worker = new Worker(path.join(__dirname, 'bcryptWorker.js'));
+        const timeout = setTimeout(() => {
+            worker.terminate();
+            reject(new Error('bcrypt worker timeout'));
+        }, 15000);
+        worker.on('message', (msg) => {
+            clearTimeout(timeout);
+            worker.terminate();
+            if (msg.success) {
+                resolve(msg.result);
+            } else {
+                reject(new Error(msg.error));
+            }
+        });
+        worker.on('error', (err) => {
+            clearTimeout(timeout);
+            reject(err);
+        });
+        worker.postMessage({ password, hash });
+    });
+};
 
 const hashPassword = async (password) => {
     return new Promise((resolve, reject) => {
@@ -17,7 +43,7 @@ const hashPassword = async (password) => {
 
 const comparePassword = async (password, hashedPassword) => {
     if (hashedPassword.startsWith('$2')) {
-        return await bcrypt.compare(password, hashedPassword);
+        return await bcryptCompareInWorker(password, hashedPassword);
     }
     const parts = hashedPassword.split('$');
     if (parts[0] === 'scrypt') {

@@ -11,8 +11,13 @@ const app = express();
 const runMigrations = require('./config/migrations');
 const initScheduler = require('./utils/scheduler');
 
-runMigrations();
-initScheduler();
+setImmediate(() => {
+    runMigrations().then(() => {
+        initScheduler();
+    }).catch(() => {
+        initScheduler();
+    });
+});
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));

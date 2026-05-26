@@ -40,19 +40,17 @@ const Login = () => {
             }
         }, 1500);
 
-        axios.get('/api/health')
-            .then(() => {
-                if (isMounted) {
-                    clearTimeout(wakeTimer);
-                    setServerWaking(false);
-                }
-            })
-            .catch(() => {
-                if (isMounted) {
-                    clearTimeout(wakeTimer);
-                    setServerWaking(false);
-                }
-            });
+        const warmUp = Promise.all([
+            axios.get('/api/health').catch(() => {}),
+            axios.get('/api/auth/profile').catch(() => {})
+        ]);
+
+        warmUp.finally(() => {
+            if (isMounted) {
+                clearTimeout(wakeTimer);
+                setServerWaking(false);
+            }
+        });
 
         return () => {
             isMounted = false;
