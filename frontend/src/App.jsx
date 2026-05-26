@@ -1,9 +1,10 @@
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Login from './pages/Login';
-import MainLayout from './layouts/MainLayout';
 import { useAuth } from './context/AuthContext';
 
+const MainLayout = lazy(() => import('./layouts/MainLayout'));
+
+const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));

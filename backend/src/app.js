@@ -2,6 +2,7 @@ const express = require('express');
 require('express-async-errors');
 const cors = require('cors');
 const path = require('path');
+const zlib = require('zlib');
 require('dotenv').config();
 
 const { errorHandler } = require('./middleware/errorMiddleware');
@@ -18,6 +19,25 @@ setImmediate(() => {
         initScheduler();
     });
 });
+
+// gzip json responses over 1kb
+const _json = express.response.json;
+express.response.json = function(body) {
+    const enc = this.req.headers['accept-encoding'] || '';
+    const str = JSON.stringify(body);
+    
+    if (enc.includes('gzip') && str && str.length > 1024) {
+        try {
+            const buf = zlib.gzipSync(str, { level: 6 });
+            this.setHeader('Content-Type', 'application/json');
+            this.setHeader('Content-Encoding', 'gzip');
+            this.setHeader('Vary', 'Accept-Encoding');
+            return this.end(buf);
+        } catch (e) {}
+    }
+    
+    return _json.call(this, body);
+};
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -56,6 +76,12 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date()
     });
 });
+
+// hashed assets get cached for a year
+app.use('/assets', express.static(path.join(__dirname, '../../frontend/dist/assets'), {
+    maxAge: '1y',
+    immutable: true,
+}));
 
 app.use(express.static(path.join(__dirname, '../../frontend/dist')));
 

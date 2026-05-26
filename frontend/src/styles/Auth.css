@@ -18,7 +18,9 @@
     height: 25rem;
     background-color: var(--accent-glow);
     border-radius: 50%;
-    filter: blur(80px);
+    filter: blur(60px);
+    will-change: transform;
+    contain: strict;
 }
 
 .auth-glow-bottom {
@@ -29,7 +31,9 @@
     height: 25rem;
     background-color: var(--accent-glow);
     border-radius: 50%;
-    filter: blur(80px);
+    filter: blur(60px);
+    will-change: transform;
+    contain: strict;
 }
 
 .auth-theme-toggle {

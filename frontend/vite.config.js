@@ -13,4 +13,17 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    target: 'es2020',
+    assetsInlineLimit: 8192,
+    cssCodeSplit: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'router': ['react-router-dom'],
+        },
+      },
+    },
+  },
 })
