@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShieldCheck, Mail, Lock, User, Building2, ArrowRight, Sun, Moon, Users, ShieldAlert, Clock } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, User, Building2, ArrowRight, Sun, Moon, Users, ShieldAlert, Clock, Activity } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -104,7 +104,7 @@ const Register = () => {
                         )}
 
                         <form onSubmit={handleSubmit} className="auth-form">
-                            <div className="role-grid" style={{gridTemplateColumns: 'repeat(3, 1fr)'}}>
+                            <div className="role-grid" style={{gridTemplateColumns: 'repeat(4, 1fr)'}}>
                                 <button
                                     type="button"
                                     onClick={() => setFormData({...formData, role: 'super_admin'})}
@@ -128,6 +128,14 @@ const Register = () => {
                                 >
                                     <User size={20} />
                                     <span>Employee</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({...formData, role: 'tester'})}
+                                    className={`role-btn ${formData.role === 'tester' ? 'active' : ''}`}
+                                >
+                                    <Activity size={20} />
+                                    <span>Tester</span>
                                 </button>
                             </div>
 

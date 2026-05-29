@@ -209,8 +209,8 @@ const AssetManagement = () => {
             </div>
 
             {isInventoryModalOpen && (
-                <div className="modal-overlay">
-                    <div className="glass-card modal-content" style={{maxWidth: '500px', width: '90%'}}>
+                <div className="modal-overlay" onClick={closeAssetModal}>
+                    <div className="glass-card modal-content" onClick={(e) => e.stopPropagation()} style={{maxWidth: '500px', width: '90%'}}>
                         <div className="feed-header">
                             <h3 className="heading-md">{selectedAssetForEdit ? 'Update Equipment Details' : 'Register New Equipment'}</h3>
                             <button onClick={closeAssetModal} className="btn-icon"><X size={18} /></button>

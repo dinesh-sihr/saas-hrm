@@ -22,6 +22,7 @@ const AIInsights = lazy(() => import('./pages/AIInsights'));
 const Meetings = lazy(() => import('./pages/Meetings'));
 const BehavioralGuide = lazy(() => import('./pages/BehavioralGuide'));
 const SalaryReport = lazy(() => import('./pages/SalaryReport'));
+const Analytics = lazy(() => import('./pages/Analytics'));
 
 const PageLoader = () => (
     <div style={{
@@ -69,6 +70,7 @@ function App() {
             <Route path="/meetings" element={<Meetings />} />
             <Route path="/behavioral-iq" element={<BehavioralGuide />} />
             <Route path="/salary-report" element={<SalaryReport />} />
+            <Route path="/analytics" element={<Analytics />} />
             
             <Route path="/super-admin">
               <Route path="dashboard" element={<SuperAdminDashboard />} />

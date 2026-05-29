@@ -13,6 +13,7 @@ const Header = ({ user, toggleSidebar }) => {
     const [activeToast, setActiveToast] = useState(null);
     const lastNotifIdRef = useRef(0);
     const toastTimerRef = useRef(null);
+    const dropdownRef = useRef(null);
     const unreadCount = notifications.filter(n => !n.is_read).length;
 
     useEffect(() => {
@@ -43,6 +44,16 @@ const Header = ({ user, toggleSidebar }) => {
         fetchNotifications();
         const interval = setInterval(fetchNotifications, 5000); 
         return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setShowNotifications(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     const markAsRead = async (id) => {
@@ -99,7 +110,7 @@ const Header = ({ user, toggleSidebar }) => {
                     {isDark ? <Sun size={20} /> : <Moon size={20} />}
                 </button>
                 
-                <div style={{position: 'relative'}}>
+                <div ref={dropdownRef} style={{position: 'relative'}}>
                     <button 
                         onClick={() => setShowNotifications(!showNotifications)} 
                         className="header-btn glass-card"

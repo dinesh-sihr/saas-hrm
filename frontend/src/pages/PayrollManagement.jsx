@@ -271,8 +271,12 @@ const PayrollManagement = () => {
                     color: #4b5563 !important;
                 }
 
+                .print-area {
+                    display: none;
+                }
+
                 @media print {
-                    .sidebar, .navbar, .no-print, button, .top-header, .sidebar-link, .dashboard-header, .feed-header, .glass-card, .tabs-container {
+                    .sidebar, .navbar, .no-print, button, .top-header, .sidebar-link, .modal-overlay, .dashboard-header, .feed-header, .glass-card, .tabs-container {
                         display: none !important;
                     }
                     .main-content {
@@ -283,29 +287,20 @@ const PayrollManagement = () => {
                         background: white !important;
                         color: black !important;
                     }
-                    .modal-overlay {
-                        position: relative !important;
-                        background: none !important;
-                        padding: 0 !important;
-                    }
-                    .modal-content {
-                        max-width: 100% !important;
-                        width: 100% !important;
-                        box-shadow: none !important;
-                        border: none !important;
-                        background: white !important;
-                        padding: 0 !important;
-                    }
-                    .modal-print-area {
+                    .print-area {
+                        display: block !important;
                         visibility: visible !important;
-                        width: 100%;
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100% !important;
                         background: white !important;
                         color: black !important;
                         padding: 2rem !important;
                         border: none !important;
                         box-shadow: none !important;
                     }
-                    .modal-print-area * {
+                    .print-area * {
                         color: black !important;
                     }
                 }
@@ -579,9 +574,126 @@ const PayrollManagement = () => {
                 )}
             </div>
 
+            {selectedSlipEmp && slipDetails && (
+                <div className="print-area">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid var(--card-border)', paddingBottom: '1.5rem', marginBottom: '2rem' }}>
+                        <div>
+                            <h2 className="heading-md" style={{ color: 'var(--accent)' }}>{user?.company_name || 'SHNOOR HRM'}</h2>
+                            <p className="text-label" style={{ textTransform: 'none', fontSize: '0.85rem' }}>Salary Calculation Slip</p>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <p style={{ fontWeight: 600 }}>Period</p>
+                            <p className="text-label" style={{ textTransform: 'none', fontSize: '0.85rem' }}>{range.from} to {range.to}</p>
+                        </div>
+                    </div>
+
+                    <div className="employee-details-box" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2.5rem', background: 'var(--card-border)', padding: '1.5rem', borderRadius: '8px' }}>
+                        <div>
+                            <p className="input-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Employee Name</p>
+                            <p style={{ fontWeight: 600, fontSize: '1rem' }}>{selectedSlipEmp.name}</p>
+                            <p className="text-label" style={{ textTransform: 'none', fontSize: '0.85rem' }}>{selectedSlipEmp.email}</p>
+                        </div>
+                        <div>
+                            <p className="input-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Employee ID</p>
+                            <p style={{ fontWeight: 600, fontSize: '1rem' }}>EMP-{selectedSlipEmp.id}</p>
+                            <p className="text-label" style={{ textTransform: 'none', fontSize: '0.85rem' }}>Role: EMPLOYEE</p>
+                        </div>
+                    </div>
+
+                    <h3 className="heading-sm" style={{ marginBottom: '1rem', borderBottom: '1px solid var(--card-border)', paddingBottom: '0.5rem' }}>Itemized Breakdown</h3>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed var(--card-border)' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Basic Salary (Base Monthly)</span>
+                            <span style={{ fontWeight: 600 }}>₹{slipDetails.basicSalary.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed var(--card-border)' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Unpaid / Absent Deductions</span>
+                            <span style={{ fontWeight: 600, color: slipDetails.deductions > 0 ? '#f43f5e' : 'inherit' }}>-₹{slipDetails.deductions.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed var(--card-border)' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Standard Shift Hours (Daily)</span>
+                            <span style={{ fontWeight: 600 }}>8.00 Hours</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed var(--card-border)' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Target Working Calendar (Days)</span>
+                            <span style={{ fontWeight: 600 }}>26.00 Days</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed var(--card-border)' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Holidays Registered in Range</span>
+                            <span style={{ fontWeight: 600 }}>-{slipDetails.holidaysCount}.00 Days</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed var(--card-border)' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Adjusted Standard Calendar Days</span>
+                            <span style={{ fontWeight: 600 }}>{slipDetails.standardDays}.00 Days</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed var(--card-border)' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Total Working Hours Logged</span>
+                            <span style={{ fontWeight: 600 }}>{slipDetails.totalEffectiveHours} Hours</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed var(--card-border)' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Earned Attendance Days Equivalent</span>
+                            <span style={{ fontWeight: 600 }}>{slipDetails.actualWorkedDays} Days</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed var(--card-border)' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Calculated Net (Salary Engine)</span>
+                            <span style={{ fontWeight: 600 }}>₹{slipDetails.earnedSalary.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px dashed var(--card-border)' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Computed Daily Wage Rate</span>
+                            <span style={{ fontWeight: 600 }}>₹{slipDetails.dailyRate.toLocaleString('en-IN')} / Day</span>
+                        </div>
+                    </div>
+
+                    <div className="net-earnings-box" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(99, 102, 241, 0.08)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--accent)', marginBottom: '2.5rem' }}>
+                        <div>
+                            <p style={{ fontWeight: 600, color: 'var(--accent)', fontSize: '1.1rem' }}>Net Take-Home Pay (Final Payout)</p>
+                            <p className="text-label" style={{ textTransform: 'none', fontSize: '0.8rem', marginTop: '0.25rem' }}>Based on final overridden or approved payment amount</p>
+                        </div>
+                        <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--accent)' }}>₹{slipDetails.netSalary.toLocaleString('en-IN')}</h2>
+                    </div>
+
+                    <h3 className="heading-sm" style={{ marginBottom: '1.25rem', borderBottom: '1px solid var(--card-border)', paddingBottom: '0.5rem', marginTop: '2.5rem' }}>Itemized Daily Ledger</h3>
+                    <div style={{ overflowX: 'auto', marginBottom: '2.5rem' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '2px solid var(--card-border)', textAlign: 'left' }}>
+                                    <th style={{ padding: '0.5rem', fontWeight: 600 }}>Date</th>
+                                    <th style={{ padding: '0.5rem', fontWeight: 600 }}>Shift Hours</th>
+                                    <th style={{ padding: '0.5rem', fontWeight: 600 }}>Daily Rate</th>
+                                    <th style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'right' }}>Earned Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {slipDetails.logs.map((log) => (
+                                    <tr key={log.date} style={{ borderBottom: '1px solid var(--card-border)' }}>
+                                        <td style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>{log.date}</td>
+                                        <td style={{ padding: '0.5rem', fontWeight: 500 }}>{log.effectiveHours.toFixed(2)} Hrs</td>
+                                        <td style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>₹{log.dailyRate.toLocaleString('en-IN')}</td>
+                                        <td style={{ padding: '0.5rem', fontWeight: 600, textAlign: 'right' }}>₹{log.earnedAmount.toLocaleString('en-IN')}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
             {selectedSlipEmp && (
-                <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.5)', zIndex: 1000, overflowY: 'auto', padding: '2rem 0' }}>
-                    <div className="glass-card modal-content" style={{ maxWidth: '850px', width: '90%', background: 'var(--card-bg)', position: 'relative', border: '1px solid var(--card-border)', padding: '2.5rem', maxHeight: '90vh', overflowY: 'auto' }}>
+                <div className="modal-overlay" onClick={() => setSelectedSlipEmp(null)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.5)', zIndex: 1000, overflowY: 'auto', padding: '2rem 0' }}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ 
+                        maxWidth: '850px', 
+                        width: '90%', 
+                        background: 'var(--card-bg)', 
+                        position: 'relative', 
+                        border: '1px solid var(--card-border)', 
+                        padding: '2.5rem', 
+                        maxHeight: '90vh', 
+                        overflowY: 'auto',
+                        borderRadius: '1.5rem',
+                        backdropFilter: 'blur(40px)',
+                        boxShadow: '0 10px 40px -10px rgba(0, 0, 0, 0.05)'
+                    }}>
                         <div className="feed-header no-print" style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--card-border)', paddingBottom: '1rem', marginBottom: '2rem' }}>
                             <h3 className="heading-md">Employee Salary Slip</h3>
                             <button onClick={() => setSelectedSlipEmp(null)} className="btn-icon" style={{ cursor: 'pointer' }}><X size={18} /></button>

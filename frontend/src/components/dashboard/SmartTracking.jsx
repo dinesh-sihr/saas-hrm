@@ -161,8 +161,8 @@ const SmartTracking = () => {
             </div>
 
             {showTaskModal && (
-                <div className="modal-overlay">
-                    <div className="glass-card modal-content" style={{maxWidth: '500px', padding: '0', overflow: 'hidden'}}>
+                <div className="modal-overlay" onClick={() => setShowTaskModal(false)}>
+                    <div className="glass-card modal-content" onClick={(e) => e.stopPropagation()} style={{maxWidth: '500px', padding: '0', overflow: 'hidden'}}>
                         <div className="modal-header-gradient" style={{padding: '2rem', background: 'var(--accent-glow)', borderBottom: '1px solid var(--card-border)'}}>
                             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                                 <div>

@@ -225,6 +225,50 @@ const runMigrations = async () => {
     } catch (err) {
         //console.error('✗ Failed to seed Super Admin:', err.message);
     }
+
+    try {
+        const companiesRes = await db.query("SELECT id, name FROM companies");
+        if (companiesRes.rows.length > 0) {
+            const { hashPassword } = require('../utils/passwordUtils');
+            const defaultPassword = await hashPassword('password123');
+
+            for (const company of companiesRes.rows) {
+                const testersCheck = await db.query("SELECT id FROM users WHERE company_id = $1 AND role = 'tester'", [company.id]);
+                if (testersCheck.rows.length === 0) {
+                    const domain = company.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    await db.query(`
+                        INSERT INTO users (company_id, name, email, password, role, status)
+                        VALUES 
+                        ($1, 'Alice Tester', $2, $3, 'tester', 'active'),
+                        ($1, 'Bob Tester', $4, $3, 'tester', 'active')
+                    `, [company.id, `alice.test@${domain}.com`, defaultPassword, `bob.test@${domain}.com`]);
+                    
+                    const seededUsers = await db.query("SELECT id FROM users WHERE company_id = $1 AND role = 'tester'", [company.id]);
+                    for (const u of seededUsers.rows) {
+                        for (let d = 0; d < 5; d++) {
+                            const date = new Date();
+                            date.setDate(date.getDate() - d);
+                            
+                            const checkIn = new Date(date);
+                            checkIn.setHours(9, 30 + Math.floor(Math.random() * 25), 0);
+                            
+                            const checkOut = new Date(checkIn);
+                            checkOut.setHours(18, Math.floor(Math.random() * 30), 0);
+                            
+                            const totalHours = 8.0 + (Math.random() * 0.8);
+                            
+                            await db.query(`
+                                INSERT INTO attendance (user_id, check_in, check_out, total_hours, status, created_at)
+                                VALUES ($1, $2, $3, $4, 'present', $5)
+                            `, [u.id, checkIn, checkOut, totalHours.toFixed(2), date]);
+                        }
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Failed to seed company testers:', err.message);
+    }
 };
 
 module.exports = runMigrations;

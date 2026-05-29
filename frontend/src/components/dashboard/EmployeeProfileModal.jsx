@@ -26,8 +26,8 @@ const EmployeeProfileModal = ({ employeeId, onClose }) => {
 
     if (loading) {
         return (
-            <div className="modal-overlay">
-                <div className="glass-card modal-content" style={{ maxWidth: '600px', height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="modal-overlay" onClick={onClose}>
+                <div className="glass-card modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div className="loading" style={{ opacity: 0.5 }}>Fetching employee data...</div>
                 </div>
             </div>

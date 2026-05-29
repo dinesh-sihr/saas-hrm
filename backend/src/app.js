@@ -1,8 +1,9 @@
-const fs = require('fs');
 const express = require('express');
 require('express-async-errors');
 const cors = require('cors');
 const path = require('path');
+const zlib = require('zlib');
+const fs = require('fs');
 require('dotenv').config();
 
 const { errorHandler } = require('./middleware/errorMiddleware');
@@ -18,6 +19,58 @@ setImmediate(() => {
     }).catch(() => {
         initScheduler();
     });
+});
+
+app.use((req, res, next) => {
+    const acceptEncoding = req.headers['accept-encoding'] || '';
+    if (!acceptEncoding.includes('gzip')) {
+        return next();
+    }
+
+    const originalEnd = res.end;
+    const originalWrite = res.write;
+    const chunks = [];
+    let ended = false;
+
+    const ext = path.extname(req.url).toLowerCase();
+    const compressible = ['.js', '.css', '.html', '.json', '.svg', '.txt', '.xml', '.map'];
+    
+    if (!compressible.includes(ext) && !req.url.startsWith('/api/')) {
+        return next();
+    }
+
+    res.write = function(chunk, encoding) {
+        if (chunk) {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding));
+        }
+        return true;
+    };
+
+    res.end = function(chunk, encoding) {
+        if (ended) return;
+        ended = true;
+
+        if (chunk) {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding));
+        }
+
+        const body = Buffer.concat(chunks);
+
+        if (body.length > 1024) {
+            try {
+                const compressed = zlib.gzipSync(body, { level: 6 });
+                res.setHeader('Content-Encoding', 'gzip');
+                res.setHeader('Vary', 'Accept-Encoding');
+                res.removeHeader('Content-Length');
+                return originalEnd.call(res, compressed);
+            } catch (e) {
+            }
+        }
+
+        return originalEnd.call(res, body);
+    };
+
+    next();
 });
 
 app.use(cors());
@@ -58,30 +111,24 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-app.use(express.static(path.join(__dirname, '../../frontend/dist'), { index: false }));
+app.use('/assets', express.static(path.join(__dirname, '../../frontend/dist/assets'), {
+    maxAge: '1y',
+    immutable: true,
+}));
 
-const serveOptimizedHtml = (req, res) => {
-    try {
-        let html = fs.readFileSync(path.join(__dirname, '../../frontend/dist/index.html'), 'utf8');
-        
-        // Dynamically rewrite any render-blocking CSS link to high-performance preloads
-        html = html.replace(
-            /<link rel="stylesheet" crossorigin href="([^"]+)">/g, 
-            '<link rel="preload" href="$1" as="style" onload="this.onload=null;this.rel=\'stylesheet\'"><noscript><link rel="stylesheet" href="$1"></noscript>'
-        );
-        html = html.replace(
-            /<link rel="stylesheet" href="([^"]+)">/g, 
-            '<link rel="preload" href="$1" as="style" onload="this.onload=null;this.rel=\'stylesheet\'"><noscript><link rel="stylesheet" href="$1"></noscript>'
-        );
-        
-        res.send(html);
-    } catch (err) {
-        res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
+app.use(express.static(path.join(__dirname, '../../frontend/dist'), {
+    maxAge: 0,
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        }
     }
-};
+}));
 
-app.get('/', serveOptimizedHtml);
-app.get('*', serveOptimizedHtml);
+app.get('*', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
+});
 
 app.use(errorHandler);
 

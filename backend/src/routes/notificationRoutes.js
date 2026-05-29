@@ -4,8 +4,8 @@ const { getNotifications, markAsRead, markAllAsRead, deleteNotification } = requ
 const { protect } = require('../middleware/authMiddleware');
 
 router.get('/', protect, getNotifications);
-router.patch('/:id', protect, markAsRead);
 router.patch('/read-all', protect, markAllAsRead);
+router.patch('/:id', protect, markAsRead);
 router.delete('/:id', protect, deleteNotification);
 
 module.exports = router;

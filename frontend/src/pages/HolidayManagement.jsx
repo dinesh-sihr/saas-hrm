@@ -161,8 +161,8 @@ const HolidayManagement = () => {
             </div>
 
             {isHolidayModalOpen && (
-                <div className="modal-overlay">
-                    <div className="glass-card modal-content" style={{maxWidth: '450px', width: '90%'}}>
+                <div className="modal-overlay" onClick={closeHolidayModal}>
+                    <div className="glass-card modal-content" onClick={(e) => e.stopPropagation()} style={{maxWidth: '450px', width: '90%'}}>
                         <div className="feed-header">
                             <h3 className="heading-md">{selectedHolidayForEdit ? 'Update Holiday Info' : 'Schedule a New Holiday'}</h3>
                             <button onClick={closeHolidayModal} className="btn-icon"><X size={18} /></button>

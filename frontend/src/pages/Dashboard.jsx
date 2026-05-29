@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import SmartTracking from '../components/dashboard/SmartTracking';
 import EmployeeTasks from '../components/dashboard/EmployeeTasks';
 import BehavioralMap from '../components/dashboard/BehavioralMap';
+import AnalyticsPreview from '../components/dashboard/AnalyticsPreview';
 
 const Dashboard = () => {
     const { user } = useAuth();
@@ -30,6 +31,8 @@ const Dashboard = () => {
             </div>
 
             <StatsGrid user={user} />
+
+            <AnalyticsPreview />
 
             <div className="dashboard-main-grid">
                 <div className="dashboard-left-col" style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}>

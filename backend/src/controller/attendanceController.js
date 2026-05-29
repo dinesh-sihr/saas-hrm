@@ -45,16 +45,8 @@ const checkIn = async (req, res) => {
         if (companyQuery.rows.length > 0) {
             const company = companyQuery.rows[0];
             if (company.latitude !== null && company.longitude !== null) {
-                const userQuery = await db.query("SELECT email FROM users WHERE id = $1", [req.user.id]);
-                const userEmail = userQuery.rows[0]?.email;
-
                 let latitude = req.body.latitude;
                 let longitude = req.body.longitude;
-
-                if (userEmail === 'emp2@example.com' || userEmail === 'emp2@exaple.com') {
-                    latitude = 90.0;
-                    longitude = 0.0;
-                }
                 
                 if (latitude === undefined || longitude === undefined) {
                     return res.status(400).json({ 
@@ -135,16 +127,8 @@ const checkOut = async (req, res) => {
         if (companyQuery.rows.length > 0) {
             const company = companyQuery.rows[0];
             if (company.latitude !== null && company.longitude !== null) {
-                const userQuery = await db.query("SELECT email FROM users WHERE id = $1", [req.user.id]);
-                const userEmail = userQuery.rows[0]?.email;
-
                 let latitude = req.body.latitude;
                 let longitude = req.body.longitude;
-
-                if (userEmail === 'emp2@example.com' || userEmail === 'emp2@exaple.com') {
-                    latitude = 90.0;
-                    longitude = 0.0;
-                }
                 
                 if (latitude === undefined || longitude === undefined) {
                     return res.status(400).json({ 
@@ -358,6 +342,116 @@ const updateGeofence = async (req, res) => {
     }
 };
 
+const getDrilldownAnalytics = async (req, res) => {
+    try {
+        const companyId = req.user.company_id;
+        if (!companyId) {
+            return res.status(400).json({ message: 'No company associated with this user.' });
+        }
+
+        const usersResult = await db.query(
+            "SELECT id, name, email, role, status, profile_photo FROM users WHERE company_id = $1 AND status = 'active'",
+            [companyId]
+        );
+        const users = usersResult.rows;
+
+        const attendanceResult = await db.query(
+            `SELECT user_id, check_in, check_out, total_hours, status 
+             FROM attendance 
+             WHERE user_id IN (SELECT id FROM users WHERE company_id = $1)
+             ORDER BY check_in DESC`,
+             [companyId]
+        );
+        const attendanceRows = attendanceResult.rows;
+
+        const userAttendanceMap = {};
+        users.forEach(u => {
+            userAttendanceMap[u.id] = [];
+        });
+
+        attendanceRows.forEach(row => {
+            if (userAttendanceMap[row.user_id]) {
+                userAttendanceMap[row.user_id].push(row);
+            }
+        });
+
+        const depts = {
+            hr: { id: 'hr', name: 'HR', attendanceSum: 0, members: [], color: '#10b981' },
+            dev: { id: 'dev', name: 'Development', attendanceSum: 0, members: [], color: '#6366f1' },
+            testing: { id: 'testing', name: 'Testing', attendanceSum: 0, members: [], color: '#ec4899' }
+        };
+
+        users.forEach(user => {
+            const logs = userAttendanceMap[user.id] || [];
+            const uniqueDays = new Set(logs.map(log => new Date(log.check_in).toDateString())).size;
+            const attendancePct = Math.min(Math.round((uniqueDays / 26) * 100), 100);
+
+            const memberInfo = {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                profile_photo: user.profile_photo,
+                attendance: attendancePct,
+                presentDays: uniqueDays,
+                absentDays: Math.max(26 - uniqueDays, 0),
+                logs: logs.map(log => {
+                    const checkInTime = new Date(log.check_in);
+                    const checkOutTime = log.check_out ? new Date(log.check_out) : null;
+                    const hours = parseFloat(log.total_hours) || 0;
+                    
+                    const istOptions = { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: true, minute: '2-digit' };
+                    const inTimeStr = checkInTime.toLocaleTimeString('en-US', istOptions);
+                    const outTimeStr = checkOutTime ? checkOutTime.toLocaleTimeString('en-US', istOptions) : '--';
+                    
+                    const checkInHour = checkInTime.getHours();
+                    const checkInMin = checkInTime.getMinutes();
+                    const isLate = checkInHour > 10 || (checkInHour === 10 && checkInMin > 0);
+
+                    return {
+                        date: checkInTime.toISOString().split('T')[0],
+                        status: log.status || 'present',
+                        hours: hours,
+                        inTime: inTimeStr,
+                        outTime: outTimeStr,
+                        type: isLate ? 'Late Arrival' : 'On Time'
+                    };
+                })
+            };
+
+            let deptKey = 'dev';
+            if (user.role === 'manager' || user.role === 'super_admin') {
+                deptKey = 'hr';
+            } else if (user.role === 'tester') {
+                deptKey = 'testing';
+            }
+
+            depts[deptKey].members.push(memberInfo);
+            depts[deptKey].attendanceSum += attendancePct;
+        });
+
+        const departmentSummaries = Object.values(depts).map(d => {
+            const avgAttendance = d.members.length > 0 ? Math.round(d.attendanceSum / d.members.length) : 100;
+            return {
+                id: d.id,
+                name: d.name,
+                attendance: avgAttendance,
+                totalMembers: d.members.length,
+                color: d.color,
+                lead: d.members[0]?.name || 'N/A',
+                members: d.members
+            };
+        });
+
+        res.json({
+            departments: departmentSummaries
+        });
+    } catch (err) {
+        console.error('Drilldown analytics error:', err);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+};
+
 module.exports = {
     getStatus,
     checkIn,
@@ -366,5 +460,6 @@ module.exports = {
     getAttendanceStats,
     getTeamAttendance,
     getGeofence,
-    updateGeofence
+    updateGeofence,
+    getDrilldownAnalytics
 };

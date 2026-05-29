@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { 
     LayoutDashboard, Users, Megaphone, Settings, LogOut, 
     Building2, CreditCard, Receipt, MessageSquare, ShieldAlert, 
-    Briefcase, Calendar, Star, FileText, Clock, Wallet, UserMinus, Zap, Video, Brain
+    Briefcase, Calendar, Star, FileText, Clock, Wallet, UserMinus, Zap, Video, Brain, BarChart3
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Layout.css';
@@ -13,6 +13,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
     
     const employeeMenu = [
         { path: '/dashboard', label: 'My Overview', icon: LayoutDashboard },
+        { path: '/analytics', label: 'Interactive Analytics', icon: BarChart3 },
         { path: '/attendance', label: 'My Work Log', icon: Clock },
         { path: '/leaves', label: 'Time Off', icon: FileText },
         { path: '/assets', label: 'My Equipment', icon: Briefcase },
@@ -26,6 +27,7 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
 
     const managerMenu = [
         { path: '/dashboard', label: 'Team Overview', icon: LayoutDashboard },
+        { path: '/analytics', label: 'Interactive Analytics', icon: BarChart3 },
         { path: '/employees', label: 'Our People', icon: Users },
         { path: '/assets', label: 'Inventory', icon: Briefcase },
         { path: '/holidays', label: 'Holidays', icon: Calendar },

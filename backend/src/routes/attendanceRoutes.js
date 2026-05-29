@@ -8,7 +8,8 @@ const {
     getAttendanceStats, 
     getTeamAttendance,
     getGeofence,
-    updateGeofence
+    updateGeofence,
+    getDrilldownAnalytics
 } = require('../controller/attendanceController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -20,6 +21,7 @@ router.post('/check-in', checkIn);
 router.post('/check-out', checkOut);
 router.get('/history', getHistory);
 router.get('/team', authorize('admin', 'manager'), getTeamAttendance);
+router.get('/drilldown', getDrilldownAnalytics);
 
 router.get('/geofence', getGeofence);
 router.post('/geofence', authorize('admin', 'manager'), updateGeofence);

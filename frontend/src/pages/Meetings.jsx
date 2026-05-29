@@ -158,8 +158,8 @@ const Meetings = () => {
             </div>
 
             {showModal && (
-                <div className="modal-overlay">
-                    <div className="glass-card modal-content" style={{maxWidth: '500px', width: '90%'}}>
+                <div className="modal-overlay" onClick={() => setShowModal(false)}>
+                    <div className="glass-card modal-content" onClick={(e) => e.stopPropagation()} style={{maxWidth: '500px', width: '90%'}}>
                         <div className="feed-header">
                             <h3 className="heading-md">Schedule New Sync</h3>
                             <button onClick={() => setShowModal(false)} className="btn-icon"><X size={18} /></button>

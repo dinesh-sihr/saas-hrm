@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const { logActivity } = require('../utils/activityLogger');
+const { createNotification } = require('./notificationController');
 
 const getMeetings = async (req, res) => {
     const query = `
@@ -36,6 +37,23 @@ const createMeeting = async (req, res) => {
             `INSERT INTO meeting_participants (meeting_id, user_id) VALUES ${valueRows.join(', ')}`,
             queryParams
         );
+
+        // Notify participants in the meeting
+        const formattedDate = new Date(scheduled_at).toLocaleString('en-US', {
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        });
+        for (const participantId of participantIds) {
+            try {
+                await createNotification(
+                    participantId,
+                    "New Meeting Invitation",
+                    `You have been invited to a new meeting: "${title}" scheduled for ${formattedDate}.`
+                );
+            } catch (err) {
+                console.error(`Failed to notify participant ${participantId}:`, err);
+            }
+        }
     }
 
     await logActivity(req.user.company_id, req.user.id, `scheduled a new meeting: ${title}`, 'Meeting Sync', '#8b5cf6');

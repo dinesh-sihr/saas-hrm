@@ -23,7 +23,7 @@ const register = async (req, res) => {
                 [companyName, email]
             );
             assignedCompanyId = newCompany.rows[0].id;
-        } else if (role === 'employee') {
+        } else if (role === 'employee' || role === 'tester') {
             if (companyName) {
                 const companySearch = await db.query('SELECT id FROM companies WHERE name = $1', [companyName]);
                 if (companySearch.rows.length === 0) {
