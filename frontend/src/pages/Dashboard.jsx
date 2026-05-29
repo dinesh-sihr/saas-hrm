@@ -17,7 +17,9 @@ const Dashboard = () => {
     const { user } = useAuth();
     
     return (
-        <div className="dashboard-container">
+        <div className="dashboard-container" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <AttendanceCard />
+
             <div>
                 <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem'}}>
                     <div className="stat-icon-box" style={{backgroundColor: 'rgba(168, 85, 247, 0.1)', color: '#a855f7', width: '1.75rem', height: '1.75rem'}}>
@@ -42,7 +44,6 @@ const Dashboard = () => {
                 </div>
                 
                 <aside className="dashboard-sidebar" style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}>
-                    <AttendanceCard />
                     <AnnouncementList />
                 </aside>
             </div>

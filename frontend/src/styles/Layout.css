@@ -78,10 +78,15 @@
 .sidebar-link.logout {
     margin-top: 0.5rem;
     color: #f43f5e;
+    background: transparent;
+    border: none;
+    outline: none;
+    width: 100%;
+    cursor: pointer;
 }
 
 .sidebar-link.logout:hover {
-    background-color: rgba(244, 63, 94, 0.05);
+    background-color: rgba(244, 63, 94, 0.08);
 }
 
 .header {

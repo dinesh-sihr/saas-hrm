@@ -80,105 +80,158 @@ const AttendanceCard = () => {
         );
     };
 
-    const percentage = Math.min((parseFloat(stats.todayHours) / stats.targetHours) * 100, 100);
-    const radius = 80;
-    const circumference = Math.PI * radius;
-    const strokeDashoffset = circumference - (percentage / 100) * circumference;
+    const onTimePercent = stats.daysPresent > 0 ? Math.round((stats.onTimeDays / stats.daysPresent) * 100) : 0;
 
     return (
-        <div className="glass-card attendance-control-card">
-            <div className="feed-header">
-                <div>
-                    <h3 className="heading-md">Attendance Control</h3>
-                    <p className="text-label" style={{textTransform: 'none'}}>Track your productivity</p>
-                </div>
-                <div className="avatar-circle">
-                    <Clock size={18} />
-                </div>
-            </div>
+        <div className="glass-card attendance-control-card" style={{ padding: '1.25rem', marginBottom: '0.5rem', transition: 'all 0.3s ease' }}>
+            <style>{`
+                .attendance-horizontal {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 1.5rem;
+                    flex-wrap: wrap;
+                }
+                .attendance-left {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.75rem;
+                    flex: 1.2;
+                    min-width: 240px;
+                }
+                .attendance-middle {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    min-width: 160px;
+                    border-left: 1px solid var(--card-border);
+                    border-right: 1px solid var(--card-border);
+                    padding: 0 1.5rem;
+                }
+                .attendance-right {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.75rem;
+                    flex: 1.5;
+                    min-width: 260px;
+                }
+                .horizontal-timer {
+                    font-size: 2rem;
+                    font-weight: 800;
+                    letter-spacing: -1px;
+                    line-height: 1;
+                    margin-bottom: 0.25rem;
+                    font-family: monospace;
+                }
+                .stats-mini-flex {
+                    display: flex;
+                    gap: 1.25rem;
+                }
+                .stat-mini-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+                @media (max-width: 768px) {
+                    .attendance-middle {
+                        border-left: none;
+                        border-right: none;
+                        padding: 1rem 0;
+                    }
+                }
+            `}</style>
 
-            <div className="gauge-container">
-                <svg width="240" height="140" viewBox="0 0 200 120">
-                    <path 
-                        d="M 20 100 A 80 80 0 0 1 180 100" 
-                        fill="none" 
-                        stroke="var(--card-border)" 
-                        strokeWidth="10" 
-                        strokeLinecap="round"
-                    />
-                    <path 
-                        d="M 20 100 A 80 80 0 0 1 180 100" 
-                        fill="none" 
-                        stroke="var(--accent)" 
-                        strokeWidth="10" 
-                        strokeDasharray={circumference} 
-                        strokeDashoffset={strokeDashoffset}
-                        strokeLinecap="round"
-                        style={{ transition: 'stroke-dashoffset 0.8s ease-in-out' }}
-                    />
-                </svg>
-                <div className="gauge-overlay">
-                    <h1 className="timer-text">{timer}</h1>
+            <div className="attendance-horizontal">
+                {/* Left Side: Header & Action Button */}
+                <div className="attendance-left">
+                    <div>
+                        <h3 className="heading-sm" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <Clock size={16} className="text-indigo-500" />
+                            Attendance Control
+                        </h3>
+                        <p className="text-muted" style={{ fontSize: '0.75rem', marginTop: '0.15rem' }}>Track productivity & check session logs</p>
+                    </div>
+                    <button 
+                        onClick={handleAction} 
+                        disabled={loading}
+                        className="btn-primary tap-button" 
+                        style={{
+                            backgroundColor: status?.check_in && !status?.check_out ? '#f43f5e' : 'var(--accent)',
+                            padding: '0.6rem 1.25rem',
+                            fontSize: '0.85rem',
+                            height: '38px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.5rem',
+                            borderRadius: '0.5rem',
+                            width: '100%',
+                            maxWidth: '220px'
+                        }}
+                    >
+                        {status?.check_in && !status?.check_out ? (
+                            <><Square size={16} /> TAP OUT</>
+                        ) : (
+                            <><Play size={16} /> TAP IN</>
+                        )}
+                    </button>
+                </div>
+
+                {/* Middle Side: Live Timer */}
+                <div className="attendance-middle">
+                    <h1 className="horizontal-timer">{timer}</h1>
                     <span className="status-badge" style={{
                         backgroundColor: status?.check_in && !status?.check_out ? 'rgba(16, 185, 129, 0.1)' : 'rgba(148, 163, 184, 0.1)',
-                        color: status?.check_in && !status?.check_out ? '#10b981' : '#94a3b8'
+                        color: status?.check_in && !status?.check_out ? '#10b981' : '#94a3b8',
+                        padding: '0.2rem 0.6rem',
+                        borderRadius: '0.4rem',
+                        fontSize: '0.7rem',
+                        fontWeight: 700
                     }}>
                         {status?.check_in && !status?.check_out ? 'IN SESSION' : 'OFF DUTY'}
                     </span>
                 </div>
-            </div>
 
-            <div className="stats-mini-grid">
-                <div className="stat-mini-item">
-                    <div className="stat-icon-small" style={{background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b'}}>
-                        <TrendingUp size={14} />
+                {/* Right Side: Key Productivity metrics */}
+                <div className="attendance-right">
+                    <div className="stats-mini-flex">
+                        <div className="stat-mini-row">
+                            <div className="stat-icon-small" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', padding: '0.3rem', borderRadius: '0.35rem' }}>
+                                <TrendingUp size={12} />
+                            </div>
+                            <div>
+                                <span style={{ fontSize: '0.85rem', fontWeight: 700, display: 'block', lineHeight: 1.1 }}>{stats.todayHours}h</span>
+                                <span className="text-muted" style={{ fontSize: '0.7rem' }}>Today</span>
+                            </div>
+                        </div>
+                        <div className="stat-mini-row">
+                            <div className="stat-icon-small" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '0.3rem', borderRadius: '0.35rem' }}>
+                                <Calendar size={12} />
+                            </div>
+                            <div>
+                                <span style={{ fontSize: '0.85rem', fontWeight: 700, display: 'block', lineHeight: 1.1 }}>{stats.monthHours}h</span>
+                                <span className="text-muted" style={{ fontSize: '0.7rem' }}>This Month</span>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <p className="stat-val">{stats.todayHours}h</p>
-                        <p className="stat-lbl">Today</p>
-                    </div>
-                </div>
-                <div className="stat-mini-item">
-                    <div className="stat-icon-small" style={{background: 'rgba(16, 185, 129, 0.1)', color: '#10b981'}}>
-                        <Calendar size={14} />
-                    </div>
-                    <div>
-                        <p className="stat-val">{stats.monthHours}h</p>
-                        <p className="stat-lbl">This Month</p>
-                    </div>
-                </div>
-            </div>
 
-            <div className="on-time-stat" style={{ marginTop: '16px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <span className="stat-lbl" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>On-Time Arrival (≤ 10:00 AM)</span>
-                    <span className="stat-val" style={{ fontSize: '0.85rem' }}>
-                        {stats.daysPresent > 0 ? Math.round((stats.onTimeDays / stats.daysPresent) * 100) : 0}%
-                    </span>
-                </div>
-                <div style={{ width: '100%', height: '6px', background: 'var(--card-border)', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{ 
-                        width: `${stats.daysPresent > 0 ? (stats.onTimeDays / stats.daysPresent) * 100 : 0}%`, 
-                        height: '100%', 
-                        background: '#10b981', 
-                        transition: 'width 0.8s ease-in-out' 
-                    }}></div>
+                    <div style={{ width: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                            <span className="text-muted" style={{ fontSize: '0.7rem' }}>On-Time Arrival (≤ 10:00 AM)</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{onTimePercent}%</span>
+                        </div>
+                        <div style={{ width: '100%', height: '5px', background: 'var(--card-border)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ 
+                                width: `${onTimePercent}%`, 
+                                height: '100%', 
+                                background: '#10b981', 
+                                transition: 'width 0.8s ease-in-out' 
+                            }}></div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <button 
-                onClick={handleAction} 
-                disabled={loading}
-                className="btn-primary tap-button" 
-                style={{
-                    backgroundColor: status?.check_in && !status?.check_out ? '#f43f5e' : 'var(--accent)'
-                }}
-            >
-                {status?.check_in && !status?.check_out ? (
-                    <><Square size={18} /> TAP OUT</>
-                ) : (
-                    <><Play size={18} /> TAP IN</>
-                )}
-            </button>
         </div>
     );
 };

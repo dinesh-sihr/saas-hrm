@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
     BarChart3, ChevronRight, ArrowLeft, Users, Calendar, 
-    Clock, CheckCircle2, AlertCircle, Sparkles, Building2, User
+    Clock, CheckCircle2, AlertCircle, Sparkles, Building2, User, Download
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/UI.css';
@@ -16,6 +16,33 @@ const Analytics = () => {
     const [data, setData] = useState({ departments: [] });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterType, setFilterType] = useState('all');
+
+    const handleExportLogs = (emp) => {
+        const logs = emp.logs || [];
+        if (logs.length === 0) {
+            alert("No attendance logs found to export.");
+            return;
+        }
+        
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Date,Status,Type,Hours Logged,Session Check-In,Session Check-Out\n";
+        
+        logs.forEach(log => {
+            const formattedDate = new Date(log.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            csvContent += `"${formattedDate}","${log.status}","${log.type || 'N/A'}",${log.hours},"${log.inTime}","${log.outTime}"\n`;
+        });
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `${emp.name.replace(/\s+/g, '_')}_Attendance_Ledger.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     useEffect(() => {
         const fetchDrilldown = async () => {
@@ -42,6 +69,8 @@ const Analytics = () => {
 
     const handleDeptClick = (dept) => {
         setSelectedDept(dept);
+        setSearchTerm('');
+        setFilterType('all');
         setLevel(2);
     };
 
@@ -58,6 +87,8 @@ const Analytics = () => {
         } else if (targetLevel === 2) {
             setLevel(2);
             setSelectedEmployee(null);
+            setSearchTerm('');
+            setFilterType('all');
         }
     };
 
@@ -65,11 +96,25 @@ const Analytics = () => {
         if (level === 3) {
             setLevel(2);
             setSelectedEmployee(null);
+            setSearchTerm('');
+            setFilterType('all');
         } else if (level === 2) {
             setLevel(1);
             setSelectedDept(null);
         }
     };
+
+    const filteredMembers = selectedDept ? selectedDept.members.filter(emp => {
+        const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                              emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              emp.role.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        if (filterType === 'all') return matchesSearch;
+        if (filterType === 'ontime') return matchesSearch && emp.attendance >= 90;
+        if (filterType === 'late') return matchesSearch && emp.attendance < 90 && emp.attendance >= 50;
+        if (filterType === 'absent') return matchesSearch && emp.attendance < 50;
+        return matchesSearch;
+    }) : [];
 
     return (
         <div className="dashboard-container" style={{ paddingBottom: '4rem' }}>
@@ -147,10 +192,34 @@ const Analytics = () => {
                     position: relative;
                     box-shadow: 0 4px 20px -2px rgba(0,0,0,0.3);
                 }
+                .bar-column::after {
+                    content: attr(data-tooltip);
+                    position: absolute;
+                    top: -4.5rem;
+                    left: 50%;
+                    transform: translateX(-50%) scale(0.85);
+                    background: var(--bg-main);
+                    border: 1px solid var(--card-border);
+                    color: var(--text-primary);
+                    padding: 0.35rem 0.75rem;
+                    border-radius: 0.6rem;
+                    font-size: 0.7rem;
+                    font-weight: 800;
+                    white-space: nowrap;
+                    opacity: 0;
+                    pointer-events: none;
+                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+                    z-index: 20;
+                }
                 .bar-wrapper:hover .bar-column {
                     transform: translateY(-8px);
                     filter: brightness(1.15);
                     box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.3);
+                }
+                .bar-wrapper:hover .bar-column::after {
+                    opacity: 1;
+                    transform: translateX(-50%) scale(1);
                 }
                 .bar-label {
                     margin-top: 1rem;
@@ -275,6 +344,7 @@ const Analytics = () => {
                                 <div key={dept.id} className="bar-wrapper" onClick={() => handleDeptClick(dept)}>
                                     <div 
                                         className="bar-column" 
+                                        data-tooltip={`Lead: ${dept.lead} | Click to Drill Down`}
                                         style={{ 
                                             height: `${dept.attendance}%`, 
                                             background: `linear-gradient(to top, ${dept.color} 20%, rgba(255,255,255,0.05) 100%)` 
@@ -300,7 +370,23 @@ const Analytics = () => {
                             >
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
-                                        <h4 className="heading-sm" style={{ marginBottom: '0.25rem' }}>{dept.name}</h4>
+                                        <h4 className="heading-sm" style={{ marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                            {dept.name}
+                                            {dept.trend !== undefined && (
+                                                <span style={{ 
+                                                    fontSize: '0.65rem', 
+                                                    fontWeight: 800, 
+                                                    padding: '0.1rem 0.4rem', 
+                                                    borderRadius: '0.4rem', 
+                                                    backgroundColor: dept.trend >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(244, 63, 94, 0.1)',
+                                                    color: dept.trend >= 0 ? '#10b981' : '#f43f5e',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center'
+                                                }}>
+                                                    {dept.trend >= 0 ? `+${dept.trend}%` : `${dept.trend}%`} MoM
+                                                </span>
+                                            )}
+                                        </h4>
                                         <p className="text-label" style={{ textTransform: 'none', fontSize: '0.75rem' }}>Lead: {dept.lead}</p>
                                     </div>
                                     <span className="badge" style={{ backgroundColor: `${dept.color}15`, color: dept.color }}>
@@ -337,6 +423,63 @@ const Analytics = () => {
                             </span>
                         </div>
 
+                        <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center', 
+                            gap: '1rem', 
+                            marginBottom: '1.5rem', 
+                            flexWrap: 'wrap',
+                            background: 'rgba(255, 255, 255, 0.01)',
+                            padding: '1rem',
+                            borderRadius: '1rem',
+                            border: '1px solid var(--card-border)'
+                        }}>
+                            <input 
+                                type="text" 
+                                placeholder="Search team by name, role or email..." 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ 
+                                    height: '2.5rem', 
+                                    flex: '1', 
+                                    minWidth: '240px', 
+                                    fontSize: '0.85rem', 
+                                    padding: '0 1.25rem', 
+                                    borderRadius: '0.75rem', 
+                                    background: 'var(--input-bg)', 
+                                    border: '1px solid var(--input-border)',
+                                    color: 'var(--text-primary)',
+                                    outline: 'none'
+                                }}
+                            />
+                            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                {['all', 'ontime', 'late', 'absent'].map(type => (
+                                    <button
+                                        key={type}
+                                        onClick={() => setFilterType(type)}
+                                        className="badge"
+                                        style={{ 
+                                            padding: '0.4rem 0.85rem', 
+                                            borderRadius: '0.6rem', 
+                                            border: '1px solid var(--card-border)',
+                                            background: filterType === type ? 'var(--accent-glow)' : 'transparent',
+                                            color: filterType === type ? 'var(--accent)' : 'var(--text-secondary)',
+                                            fontWeight: 700,
+                                            fontSize: '0.75rem',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        {type === 'all' && 'All'}
+                                        {type === 'ontime' && 'On Time (≥90%)'}
+                                        {type === 'late' && 'Tardy (<90%)'}
+                                        {type === 'absent' && 'Critical (<50%)'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         <div className="glass-table-container">
                             <table className="glass-table">
                                 <thead>
@@ -349,7 +492,8 @@ const Analytics = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {selectedDept.members?.map((emp) => (
+                                    {filteredMembers.length > 0 ? (
+                                        filteredMembers.map((emp) => (
                                         <tr key={emp.id} style={{ cursor: 'pointer' }} onClick={() => handleEmployeeClick(emp)}>
                                             <td>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -388,7 +532,15 @@ const Analytics = () => {
                                                 </span>
                                             </td>
                                         </tr>
-                                    ))}
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="5" style={{ textAlign: 'center', padding: '3.5rem', color: 'var(--text-secondary)' }}>
+                                            <Users size={28} style={{ display: 'block', margin: '0 auto 0.75rem auto', opacity: 0.4 }} />
+                                            No team members match your search or filter settings.
+                                        </td>
+                                    </tr>
+                                )}
                                 </tbody>
                             </table>
                         </div>
@@ -413,9 +565,33 @@ const Analytics = () => {
                                     <p className="text-muted" style={{ fontSize: '0.9rem' }}>{selectedEmployee.role} &bull; {selectedDept.name} Department</p>
                                 </div>
                             </div>
-                            <div style={{ textAlign: 'right' }}>
-                                <p className="text-label" style={{ textTransform: 'none' }}>Overall Period Attendance</p>
-                                <h2 className="heading-lg" style={{ color: selectedDept.color, margin: 0 }}>{selectedEmployee.attendance}%</h2>
+                            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                                <div>
+                                    <p className="text-label" style={{ textTransform: 'none' }}>Overall Period Attendance</p>
+                                    <h2 className="heading-lg" style={{ color: selectedDept.color, margin: 0 }}>{selectedEmployee.attendance}%</h2>
+                                </div>
+                                <button 
+                                    onClick={() => handleExportLogs(selectedEmployee)}
+                                    className="badge-premium"
+                                    style={{
+                                        background: 'rgba(255, 255, 255, 0.05)',
+                                        color: 'var(--text-primary)',
+                                        border: '1px solid var(--card-border)',
+                                        cursor: 'pointer',
+                                        padding: '0.4rem 0.8rem',
+                                        borderRadius: '0.5rem',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.35rem',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
+                                >
+                                    <Download size={12} /> Export CSV Ledger
+                                </button>
                             </div>
                         </div>
 

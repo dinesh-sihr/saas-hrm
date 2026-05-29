@@ -51,7 +51,7 @@ const AnnouncementList = () => {
 
     return (
         <>
-            <div className="glass-card" style={{padding: '2rem', height: '100%', minHeight: '400px', display: 'flex', flexDirection: 'column'}}>
+            <div className="glass-card" style={{padding: '2rem', height: '520px', display: 'flex', flexDirection: 'column'}}>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem'}}>
                     <h3 className="heading-md">Notices</h3>
                     {user.role === 'manager' && (

@@ -10,6 +10,8 @@ import '../../styles/UI.css';
 const ActivityFeed = () => {
     const [activities, setActivities] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 5;
 
     const fetchActivities = async () => {
         try {
@@ -27,6 +29,11 @@ const ActivityFeed = () => {
         const interval = setInterval(fetchActivities, 30000);
         return () => clearInterval(interval);
     }, []);
+
+    // Reset to page 1 if activities length changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activities.length]);
 
     const getIcon = (status) => {
         switch(status) {
@@ -50,8 +57,13 @@ const ActivityFeed = () => {
 
     if (loading) return <div className="activity-feed glass-card" style={{padding: '2rem'}}>Loading pulse...</div>;
 
+    const totalPages = Math.ceil(activities.length / itemsPerPage);
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentActivities = activities.slice(indexOfFirstItem, indexOfLastItem);
+
     return (
-        <div className="activity-feed glass-card" style={{padding: '2rem'}}>
+        <div className="activity-feed glass-card" style={{padding: '2rem', display: 'flex', flexDirection: 'column'}}>
             <div className="feed-header" style={{marginBottom: '1.5rem'}}>
                 <div>
                     <h3 className="heading-md">Recent Activity</h3>
@@ -63,9 +75,9 @@ const ActivityFeed = () => {
                 </div>
             </div>
             
-            <div className="activity-list" style={{display: 'flex', flexDirection: 'column', gap: '1.25rem'}}>
-                {activities.length > 0 ? (
-                    activities.map((item) => (
+            <div className="activity-list" style={{display: 'flex', flexDirection: 'column', gap: '1.25rem', flex: 1}}>
+                {currentActivities.length > 0 ? (
+                    currentActivities.map((item) => (
                         <div key={item.id} className="activity-row" style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
                             <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
                                 <div className="stat-icon-box" style={{
@@ -104,6 +116,35 @@ const ActivityFeed = () => {
                     </div>
                 )}
             </div>
+
+            {totalPages > 1 && (
+                <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    marginTop: '1.5rem', 
+                    paddingTop: '1rem', 
+                    borderTop: '1px solid var(--card-border)' 
+                }}>
+                    <button 
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                        disabled={currentPage === 1}
+                        className="text-btn"
+                        style={{ opacity: currentPage === 1 ? 0.3 : 1, display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: currentPage === 1 ? 'default' : 'pointer' }}
+                    >
+                        &larr; Previous
+                    </button>
+                    <span style={{ fontSize: '0.75rem', opacity: 0.6, fontWeight: 600 }}>Page {currentPage} of {totalPages}</span>
+                    <button 
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                        disabled={currentPage === totalPages}
+                        className="text-btn"
+                        style={{ opacity: currentPage === totalPages ? 0.3 : 1, display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: currentPage === totalPages ? 'default' : 'pointer' }}
+                    >
+                        Next &rarr;
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

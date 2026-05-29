@@ -73,9 +73,8 @@ const getRecentActivities = async (req, res) => {
             SELECT a.*, u.name as user_name
             FROM activities a
             LEFT JOIN users u ON a.user_id = u.id
-            WHERE a.company_id = $1
+            WHERE a.company_id = $1 AND a.created_at::date = CURRENT_DATE
             ORDER BY a.created_at DESC
-            LIMIT 10
         `, [req.user.company_id]);
         res.json(result.rows);
     } catch (error) {
